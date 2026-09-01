@@ -1,0 +1,52 @@
+{
+  "app.title": "Project AFK",
+  "app.subtitle": "Your party fights on its own",
+
+  "tab.battle": "Battle",
+  "tab.party": "Party",
+  "tab.skills": "Skills",
+  "tab.tree": "Skill Tree",
+  "tab.comingSoon": "Coming soon",
+
+  "resource.gold": "Gold",
+  "resource.stage": "Stage",
+  "resource.attempt": "Attempt {n}",
+  "resource.best": "Best",
+  "resource.kills": "Kills",
+
+  "battle.wave": "Wave {current} / {total}",
+  "battle.boss": "BOSS",
+  "battle.victory": "Stage cleared!",
+  "battle.defeat": "Party wiped - retrying...",
+  "battle.speed": "Speed",
+
+  "party.title": "Party",
+  "party.level": "Lv {n}",
+  "party.xp": "XP",
+  "party.hp": "HP",
+  "party.ko": "DOWN",
+  "party.levelUp": "Level up!",
+
+  "offline.title": "While you were away",
+  "offline.body": "Your party kept farming stage {stage} for {duration}.",
+  "offline.capped": "(capped at {cap})",
+  "offline.gold": "+{n} gold",
+  "offline.xp": "+{n} XP per hero",
+  "offline.claim": "Claim",
+
+  "time.hours": "{n}h",
+  "time.minutes": "{n}m",
+  "time.seconds": "{n}s",
+
+  "lang.label": "Language",
+
+  "class.warrior": "Warrior",
+  "class.mage": "Mage",
+  "class.priest": "Priest",
+  "class.rogue": "Rogue",
+
+  "enemy.goblin": "Goblin",
+  "enemy.archer": "Archer",
+  "enemy.orc": "Orc",
+  "enemy.ogre": "Ogre"
+}

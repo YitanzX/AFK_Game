@@ -1,0 +1,52 @@
+{
+  "app.title": "Project AFK",
+  "app.subtitle": "Tu grupo pelea solo",
+
+  "tab.battle": "Batalla",
+  "tab.party": "Grupo",
+  "tab.skills": "Habilidades",
+  "tab.tree": "Árbol de habilidades",
+  "tab.comingSoon": "Próximamente",
+
+  "resource.gold": "Oro",
+  "resource.stage": "Nivel",
+  "resource.attempt": "Intento {n}",
+  "resource.best": "Récord",
+  "resource.kills": "Bajas",
+
+  "battle.wave": "Oleada {current} / {total}",
+  "battle.boss": "JEFE",
+  "battle.victory": "¡Nivel superado!",
+  "battle.defeat": "Grupo derrotado - reintentando...",
+  "battle.speed": "Velocidad",
+
+  "party.title": "Grupo",
+  "party.level": "Nv {n}",
+  "party.xp": "XP",
+  "party.hp": "PV",
+  "party.ko": "CAÍDO",
+  "party.levelUp": "¡Sube de nivel!",
+
+  "offline.title": "Mientras no estabas",
+  "offline.body": "Tu grupo siguió farmeando el nivel {stage} durante {duration}.",
+  "offline.capped": "(limitado a {cap})",
+  "offline.gold": "+{n} de oro",
+  "offline.xp": "+{n} XP por héroe",
+  "offline.claim": "Recoger",
+
+  "time.hours": "{n} h",
+  "time.minutes": "{n} min",
+  "time.seconds": "{n} s",
+
+  "lang.label": "Idioma",
+
+  "class.warrior": "Guerrero",
+  "class.mage": "Mago",
+  "class.priest": "Sacerdote",
+  "class.rogue": "Pícaro",
+
+  "enemy.goblin": "Goblin",
+  "enemy.archer": "Arquero",
+  "enemy.orc": "Orco",
+  "enemy.ogre": "Ogro"
+}
