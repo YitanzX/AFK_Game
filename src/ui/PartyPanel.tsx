@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { useT } from '../i18n';
 import { useGameStore } from '../game/state/store';
 import { battleController, type PartySlotHp } from '../game/state/battleController';
-import { CLASSES, statsForLevel } from '../game/content/classes';
+import { CLASSES } from '../game/content/classes';
+import { deriveUnitStats } from '../game/systems/stats';
 import { xpForLevel } from '../game/core/formulas';
 import { Bar } from './components/Bar';
 import { formatNumber } from './format';
 
-/** Live hp per roster slot (incl. KO flag), sampled from the running battle. */
+/** Live hp per party index (incl. KO flag), sampled from the running battle. */
 function usePartyHp(): Record<number, PartySlotHp> {
   const [data, setData] = useState<Record<number, PartySlotHp>>({});
   useEffect(() => {
@@ -20,6 +21,7 @@ function usePartyHp(): Record<number, PartySlotHp> {
 export function PartyPanel() {
   const { t } = useT();
   const roster = useGameStore((s) => s.roster);
+  const party = useGameStore((s) => s.party);
   const recentLevelUps = useGameStore((s) => s.recentLevelUps);
   const partyHp = usePartyHp();
 
@@ -27,20 +29,31 @@ export function PartyPanel() {
     <aside className="panel">
       <h2 style={{ marginTop: 0, fontSize: 15 }}>{t('party.title')}</h2>
       <div className="party">
-        {roster.map((hero, i) => {
+        {party.map((slot, partyIndex) => {
+          const rosterIdx = roster.findIndex((r) => r.classId === slot.classId);
+          const hero = roster[rosterIdx];
+          if (!hero) return null;
+
           const cls = CLASSES[hero.classId];
-          const slot = partyHp[i];
-          const maxHp = slot?.maxHp ?? statsForLevel(hero.classId, hero.level).maxHp;
-          const hp = slot ? slot.hp : maxHp;
-          const alive = slot ? slot.alive : true;
+          const live = partyHp[partyIndex];
+          const maxHp = live?.maxHp ?? deriveUnitStats(hero).maxHp;
+          const hp = live ? live.hp : maxHp;
+          const alive = live ? live.alive : true;
           const xpNeeded = xpForLevel(hero.level);
+
           const classes = ['hero'];
-          if (recentLevelUps.includes(i)) classes.push('levelup');
+          if (recentLevelUps.includes(rosterIdx)) classes.push('levelup');
           if (!alive) classes.push('dead');
+
           return (
-            <div key={i} className={classes.join(' ')}>
+            <div key={slot.classId} className={classes.join(' ')}>
               <div className="top">
-                <span className="name">{t(cls?.nameKey ?? hero.classId)}</span>
+                <span className="name">
+                  {t(cls?.nameKey ?? hero.classId)}
+                  <span className="muted" style={{ fontSize: 10, marginLeft: 4 }}>
+                    {t(`party.line.${slot.line}`)}
+                  </span>
+                </span>
                 {alive ? (
                   <span className="lvl">{t('party.level', { n: hero.level })}</span>
                 ) : (

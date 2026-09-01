@@ -3,16 +3,14 @@ import { createCombat, stepCombat } from '../core/simulation';
 import { mulberry32, hashSeed } from '../core/rng';
 import { TICK_SECONDS } from '../core/loop';
 import { getStage } from '../content/stages';
-import type { CombatState, RosterUnit } from '../core/types';
+import type { CombatState } from '../core/types';
+import { starterResolvedParty } from './_fixtures';
 
-const ROSTER: RosterUnit[] = [
-  { classId: 'warrior', level: 1, xp: 0 },
-  { classId: 'mage', level: 1, xp: 0 },
-];
+const PARTY = starterResolvedParty();
 
 function runToEnd(seed: number, stage: number, attempt: number) {
   const rng = mulberry32(hashSeed(seed, stage, attempt));
-  const state = createCombat({ roster: ROSTER, stage, attempt });
+  const state = createCombat({ party: PARTY, stage, attempt });
   let ticks = 0;
   const MAX_TICKS = 60 * 60 * 5; // 5 simulated minutes safety cap
   while (state.outcome === 'ongoing' && ticks < MAX_TICKS) {
@@ -56,7 +54,7 @@ describe('stepCombat', () => {
   });
 
   it('spawns both allies and the first wave of enemies', () => {
-    const state = createCombat({ roster: ROSTER, stage: 1, attempt: 1 });
+    const state = createCombat({ party: PARTY, stage: 1, attempt: 1 });
     expect(state.units.filter((u) => u.team === 'ally')).toHaveLength(2);
     expect(state.units.some((u) => u.team === 'enemy')).toBe(true);
     expect(state.wave).toBe(1);
@@ -73,8 +71,15 @@ describe('stepCombat', () => {
   });
 
   it('rewards start at zero', () => {
-    const state = createCombat({ roster: ROSTER, stage: 3, attempt: 1 });
+    const state = createCombat({ party: PARTY, stage: 3, attempt: 1 });
     expect(state.rewards).toEqual({ gold: 0, xp: 0 });
     expect(state.kills).toBe(0);
+    expect(state.fragments).toBe(0);
+  });
+
+  it('drops fragments as enemies die', () => {
+    const { state } = runToEnd(2, 1, 1);
+    expect(state.outcome).toBe('victory');
+    expect(state.fragments).toBeGreaterThan(0);
   });
 });

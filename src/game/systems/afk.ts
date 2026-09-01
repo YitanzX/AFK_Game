@@ -5,7 +5,7 @@
  * gold/xp per second, then multiplying by the (capped) time away.
  */
 
-import type { FarmRates, RosterUnit } from '../core/types';
+import type { FarmRates, ResolvedHero } from '../core/types';
 import { createCombat, stepCombat } from '../core/simulation';
 import { mulberry32, hashSeed } from '../core/rng';
 import { TICK_SECONDS } from '../core/loop';
@@ -22,12 +22,13 @@ const SAMPLE_SECONDS = 120;
 export function estimateFarmRates(input: {
   seed: number;
   stage: number;
-  roster: RosterUnit[];
+  party: ResolvedHero[];
 }): FarmRates {
-  if (input.roster.length === 0) return { goldPerSec: 0, xpPerSec: 0 };
+  if (input.party.length === 0) return { goldPerSec: 0, xpPerSec: 0 };
 
   const rng = mulberry32(hashSeed(input.seed, input.stage, 1));
-  const state = createCombat({ roster: input.roster, stage: input.stage, attempt: 1 });
+  const mk = () => createCombat({ party: input.party, stage: input.stage, attempt: 1 });
+  const state = mk();
   const maxTicks = Math.round(SAMPLE_SECONDS / TICK_SECONDS);
 
   let ticks = 0;
@@ -39,8 +40,7 @@ export function estimateFarmRates(input: {
     if (state.outcome === 'victory') {
       gold += state.rewards.gold;
       xp += state.rewards.xp;
-      // Re-run the same stage to keep sampling a steady farm loop.
-      Object.assign(state, createCombat({ roster: input.roster, stage: input.stage, attempt: 1 }));
+      Object.assign(state, mk()); // keep sampling a steady farm loop
     } else if (state.outcome === 'defeat') {
       break;
     }

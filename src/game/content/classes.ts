@@ -8,7 +8,18 @@
  * for now (equipment and skills will modify them later).
  */
 
-import type { Stats } from '../core/types';
+import type { PartySlot, RosterUnit, Stats } from '../core/types';
+import { emptyEquipment } from '../core/types';
+
+/**
+ * A passive class trait the simulation applies directly (no skill needed).
+ * M2 only uses `regen` (priest). More kinds land with M3 skills.
+ */
+export interface ClassTrait {
+  kind: 'regen';
+  /** hp per second per level, applied to all living allies. */
+  perLevel: number;
+}
 
 export interface ClassDef {
   id: string;
@@ -19,6 +30,8 @@ export interface ClassDef {
   base: Stats;
   /** Added to the corresponding base stat for each level above 1. */
   growth: Pick<Stats, 'maxHp' | 'atk' | 'def'>;
+  /** Optional always-on passive handled by the simulation. */
+  trait?: ClassTrait;
 }
 
 export const CLASSES: Record<string, ClassDef> = {
@@ -72,6 +85,8 @@ export const CLASSES: Record<string, ClassDef> = {
       critDmg: 1.5,
     },
     growth: { maxHp: 20, atk: 2.4, def: 1 },
+    // Party-wide regen so the healer matters before real skills (M3).
+    trait: { kind: 'regen', perLevel: 0.9 },
   },
 
   rogue: {
@@ -105,8 +120,26 @@ export function statsForLevel(classId: string, level: number): Stats {
   };
 }
 
-/** The starting party for a fresh save. */
-export const STARTER_ROSTER: { classId: string; level: number; xp: number }[] = [
-  { classId: 'warrior', level: 1, xp: 0 },
-  { classId: 'mage', level: 1, xp: 0 },
-];
+/** Classes present in a fresh roster. */
+export const STARTER_CLASSES = ['warrior', 'mage'] as const;
+
+/** A fresh roster (one RosterUnit per starter class). */
+export function starterRoster(): RosterUnit[] {
+  return STARTER_CLASSES.map((classId) => ({
+    classId,
+    level: 1,
+    xp: 0,
+    equipment: emptyEquipment(),
+  }));
+}
+
+/** The active party in a fresh save. */
+export function defaultParty(): PartySlot[] {
+  return [
+    { classId: 'warrior', line: 'front' },
+    { classId: 'mage', line: 'back' },
+  ];
+}
+
+/** Max heroes that can fight at once. */
+export const MAX_PARTY = 4;

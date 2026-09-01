@@ -11,11 +11,11 @@
  * the hooks (`skillCds`, effect handling) are left for M3.
  */
 
-import type { CombatState, Projectile, RosterUnit, Stats, Unit } from './types';
+import type { CombatState, Projectile, ResolvedHero, Stats, Unit } from './types';
 import { BATTLEFIELD } from './types';
 import type { Rng } from './rng';
 import { basicDamage } from './formulas';
-import { statsForLevel, CLASSES } from '../content/classes';
+import { CLASSES } from '../content/classes';
 import { enemyStatsForStage, enemyBounty, ENEMIES } from '../content/enemies';
 import { getStage } from '../content/stages';
 
@@ -25,7 +25,8 @@ const PROJECTILE_SPEED = 140;
 const FLOATER_TTL = 0.8;
 
 export interface CombatParams {
-  roster: RosterUnit[];
+  /** The active party, already resolved to derived stats + placement. */
+  party: ResolvedHero[];
   stage: number;
   attempt: number;
 }
@@ -44,10 +45,11 @@ export function createCombat(params: CombatParams): CombatState {
     elapsed: 0,
     rewards: { gold: 0, xp: 0 },
     kills: 0,
+    fragments: 0,
     nextId: 1,
   };
 
-  spawnAllies(state, params.roster);
+  spawnAllies(state, params.party);
   spawnWave(state, 0);
   return state;
 }
@@ -56,21 +58,21 @@ function id(state: CombatState, prefix: string): string {
   return `${prefix}${state.nextId++}`;
 }
 
-function spawnAllies(state: CombatState, roster: RosterUnit[]): void {
-  roster.forEach((r, index) => {
-    const cls = CLASSES[r.classId];
-    const stats = statsForLevel(r.classId, r.level);
-    // Melee toward the front, ranged a little back.
-    const x = stats.range >= RANGED_THRESHOLD ? 22 : 40;
+function spawnAllies(state: CombatState, party: ResolvedHero[]): void {
+  party.forEach((hero) => {
+    const cls = CLASSES[hero.classId];
+    // Front line holds the line; back line hangs back a bit further.
+    const x = hero.line === 'front' ? 42 : 20;
     state.units.push(
       makeUnit(state, {
         team: 'ally',
-        kind: r.classId,
-        name: cls?.nameKey ?? r.classId,
-        rosterIndex: index,
+        kind: hero.classId,
+        name: cls?.nameKey ?? hero.classId,
+        rosterIndex: hero.partyIndex,
+        level: hero.level,
         x,
-        y: laneY(index, roster.length),
-        stats,
+        y: laneY(hero.partyIndex, party.length),
+        stats: hero.stats,
       }),
     );
   });
@@ -109,6 +111,7 @@ function makeUnit(
     kind: string;
     name: string;
     rosterIndex: number;
+    level?: number;
     x: number;
     y: number;
     stats: Stats;
@@ -122,6 +125,7 @@ function makeUnit(
     kind: opts.kind,
     name: opts.name,
     rosterIndex: opts.rosterIndex,
+    level: opts.level ?? 0,
     x: opts.x,
     y: opts.y,
     hp: opts.stats.maxHp,
@@ -174,10 +178,39 @@ export function stepCombat(state: CombatState, dt: number, rng: Rng): void {
     }
   }
 
+  applyClassTraits(state, dt, rng);
   updateProjectiles(state, dt, rng);
   updateFloaters(state, dt);
   cleanupDead(state);
   resolveOutcome(state);
+}
+
+/** Always-on passives (M2: priest party-wide regen). */
+function applyClassTraits(state: CombatState, dt: number, rng: Rng): void {
+  let regenPerSec = 0;
+  for (const u of state.units) {
+    if (u.dead || u.team !== 'ally') continue;
+    const trait = CLASSES[u.kind]?.trait;
+    if (trait?.kind === 'regen') regenPerSec += trait.perLevel * Math.max(1, u.level);
+  }
+  if (regenPerSec <= 0) return;
+
+  const heal = regenPerSec * dt;
+  for (const u of state.units) {
+    if (u.dead || u.team !== 'ally' || u.hp >= u.stats.maxHp) continue;
+    u.hp = Math.min(u.stats.maxHp, u.hp + heal);
+    // Occasional heal number so it reads on screen without spamming.
+    if (rng.chance(dt * 1.2)) {
+      state.floaters.push({
+        id: `f${state.nextId++}`,
+        x: u.x,
+        y: u.y,
+        text: `+${Math.max(1, Math.round(regenPerSec))}`,
+        kind: 'heal',
+        ttl: FLOATER_TTL,
+      });
+    }
+  }
 }
 
 function acquireTarget(unit: Unit, enemies: Unit[]): Unit {
@@ -263,6 +296,7 @@ function applyDamage(state: CombatState, target: Unit, amount: number, crit: boo
       state.rewards.gold += target.goldValue;
       state.rewards.xp += target.xpValue;
       state.kills += 1;
+      state.fragments += ENEMIES[target.kind]?.fragments ?? 0;
     }
   }
 }

@@ -16,6 +16,8 @@ export interface EnemyDef {
   gold: number;
   /** XP granted to every party member when this enemy dies, at stage 1. */
   xp: number;
+  /** Hero fragments dropped when this enemy dies (flat, not stage-scaled). */
+  fragments: number;
 }
 
 export const ENEMIES: Record<string, EnemyDef> = {
@@ -35,6 +37,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     },
     gold: 12,
     xp: 16,
+    fragments: 1,
   },
 
   archer: {
@@ -53,6 +56,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     },
     gold: 16,
     xp: 22,
+    fragments: 1,
   },
 
   orc: {
@@ -71,6 +75,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     },
     gold: 30,
     xp: 40,
+    fragments: 2,
   },
 
   ogre: {
@@ -89,6 +94,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     },
     gold: 400,
     xp: 500,
+    fragments: 20,
   },
 };
 

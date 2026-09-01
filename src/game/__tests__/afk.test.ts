@@ -1,31 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import { computeOfflineProgress, estimateFarmRates } from '../systems/afk';
 import { AFK_CAP_SECONDS } from '../core/formulas';
-import type { FarmRates, RosterUnit } from '../core/types';
+import type { FarmRates } from '../core/types';
+import { starterResolvedParty } from './_fixtures';
 
 const HOUR = 3600 * 1000;
 const RATES: FarmRates = { goldPerSec: 10, xpPerSec: 7 };
-
-const ROSTER: RosterUnit[] = [
-  { classId: 'warrior', level: 1, xp: 0 },
-  { classId: 'mage', level: 1, xp: 0 },
-];
+const PARTY = starterResolvedParty();
 
 describe('estimateFarmRates', () => {
   it('reports a positive rate on an early, clearable stage', () => {
-    const r = estimateFarmRates({ seed: 1, stage: 1, roster: ROSTER });
+    const r = estimateFarmRates({ seed: 1, stage: 1, party: PARTY });
     expect(r.goldPerSec).toBeGreaterThan(0);
     expect(r.xpPerSec).toBeGreaterThan(0);
   });
 
-  it('is zero with no roster', () => {
-    const r = estimateFarmRates({ seed: 1, stage: 1, roster: [] });
+  it('is zero with no party', () => {
+    const r = estimateFarmRates({ seed: 1, stage: 1, party: [] });
     expect(r).toEqual({ goldPerSec: 0, xpPerSec: 0 });
   });
 
   it('is deterministic', () => {
-    expect(estimateFarmRates({ seed: 5, stage: 2, roster: ROSTER })).toEqual(
-      estimateFarmRates({ seed: 5, stage: 2, roster: ROSTER }),
+    expect(estimateFarmRates({ seed: 5, stage: 2, party: PARTY })).toEqual(
+      estimateFarmRates({ seed: 5, stage: 2, party: PARTY }),
     );
   });
 });

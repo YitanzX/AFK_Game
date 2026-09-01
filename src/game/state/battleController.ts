@@ -13,7 +13,7 @@ import { GameLoop } from '../core/loop';
 import { createCombat, stepCombat } from '../core/simulation';
 import { mulberry32, hashSeed, type Rng } from '../core/rng';
 import type { CombatState } from '../core/types';
-import { useGameStore } from './store';
+import { useGameStore, resolveParty } from './store';
 
 const RESULT_PAUSE_MS = 900;
 
@@ -29,9 +29,11 @@ class BattleController {
   private combat: CombatState;
   private rng: Rng = mulberry32(1);
   /** Rewards already pushed to the store for the current combat. */
-  private banked = { gold: 0, xp: 0, kills: 0 };
+  private banked = { gold: 0, xp: 0, kills: 0, fragments: 0 };
   private endHandled = false;
   private pauseUntil = 0;
+  /** Last `loadoutRev` we built a combat for; a change forces a rebuild. */
+  private loadoutRev = -1;
   /**
    * Per-roster-index hp for the party panel. The sim deletes dead units, so we
    * remember which slots existed this battle and report hp 0 / alive:false for
@@ -73,11 +75,12 @@ class BattleController {
   private buildCombat(): CombatState {
     const s = useGameStore.getState();
     this.rng = mulberry32(hashSeed(s.seed, s.farmingStage, s.stageAttempt));
-    this.banked = { gold: 0, xp: 0, kills: 0 };
+    this.banked = { gold: 0, xp: 0, kills: 0, fragments: 0 };
     this.endHandled = false;
     this.pauseUntil = 0;
+    this.loadoutRev = s.loadoutRev;
     const combat = createCombat({
-      roster: s.roster,
+      party: resolveParty(s.roster, s.party),
       stage: s.farmingStage,
       attempt: s.stageAttempt,
     });
@@ -107,19 +110,32 @@ class BattleController {
     }
   }
 
-  /** Push newly-earned kill rewards (the delta since last tick) to the store. */
+  /** Push newly-earned kill rewards + fragments (delta since last tick). */
   private flushRewards(): void {
     const r = this.combat.rewards;
     const dGold = r.gold - this.banked.gold;
     const dXp = r.xp - this.banked.xp;
     const dKills = this.combat.kills - this.banked.kills;
+    const dFrags = this.combat.fragments - this.banked.fragments;
     if (dGold > 0 || dXp > 0 || dKills > 0) {
       useGameStore.getState().addKillRewards(dGold, dXp, dKills);
-      this.banked = { gold: r.gold, xp: r.xp, kills: this.combat.kills };
     }
+    if (dFrags > 0) useGameStore.getState().addFragments(dFrags);
+    this.banked = {
+      gold: r.gold,
+      xp: r.xp,
+      kills: this.combat.kills,
+      fragments: this.combat.fragments,
+    };
   }
 
   private tick = (dt: number): void => {
+    // Party / gear changed in the UI -> rebuild with the new loadout.
+    if (this.combat.outcome === 'ongoing' && useGameStore.getState().loadoutRev !== this.loadoutRev) {
+      this.restart();
+      return;
+    }
+
     if (this.combat.outcome === 'ongoing') {
       stepCombat(this.combat, dt, this.rng);
       this.flushRewards();

@@ -5,6 +5,8 @@
  * The canvas renderer scales those to pixels.
  */
 
+import type { Item, ItemSlot } from './items';
+
 export type Team = 'ally' | 'enemy';
 
 export type Outcome = 'ongoing' | 'victory' | 'defeat';
@@ -37,8 +39,10 @@ export interface Unit {
   kind: string;
   /** Display name (already localised or a class key the UI resolves). */
   name: string;
-  /** Roster index for allies so results can be written back. -1 for enemies. */
+  /** Party index for allies so results can be written back. -1 for enemies. */
   rosterIndex: number;
+  /** Character level for allies (drives class traits); 0 for enemies. */
+  level: number;
 
   x: number;
   y: number;
@@ -104,18 +108,50 @@ export interface CombatState {
   rewards: { gold: number; xp: number };
   /** Enemies killed this combat. */
   kills: number;
+  /** Hero fragments dropped this combat (from enemy kills). Never decreases. */
+  fragments: number;
 
   /** Monotonic id counter for spawned entities. */
   nextId: number;
 }
 
-/** Persistent per-character data (the roster). */
+/** What a hero has equipped. Slot keys match `ItemSlot`. */
+export interface Equipment {
+  weapon: Item | null;
+  armor: Item | null;
+  accessory: Item | null;
+}
+
+export function emptyEquipment(): Equipment {
+  return { weapon: null, armor: null, accessory: null };
+}
+
+/** Persistent per-character data (the roster). At most one per classId. */
 export interface RosterUnit {
   classId: string;
   level: number;
   /** XP accumulated toward the next level (not lifetime XP). */
   xp: number;
+  equipment: Equipment;
 }
+
+/** A slot in the active party (subset of the roster, max 4). */
+export interface PartySlot {
+  classId: string;
+  line: 'front' | 'back';
+}
+
+/** A party member resolved for the simulation: derived stats + placement. */
+export interface ResolvedHero {
+  classId: string;
+  line: 'front' | 'back';
+  /** Index in the active party array; written back as `Unit.rosterIndex`. */
+  partyIndex: number;
+  level: number;
+  stats: Stats;
+}
+
+export type { Item, ItemSlot };
 
 /** Reward rate while farming a stage, measured from a headless simulation. */
 export interface FarmRates {

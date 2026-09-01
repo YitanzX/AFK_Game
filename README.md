@@ -15,6 +15,19 @@ npm run build    # type-check + production build
 npm run preview  # serve the production build
 ```
 
+## Milestone 2 (party, recruiting, equipment)
+
+- **Party of up to 4** with front / back lines. A larger bench of recruited heroes; field
+  and bench them from the Party tab; combat placement follows the line you pick.
+- **Recruiting via fragments**: enemies drop hero fragments; fill the bar and the class
+  (priest, then rogue) is recruited automatically and joins the fight.
+- **Priest** has a party-wide heal-over-time passive so the healer pulls its weight before
+  real skills arrive.
+- **Equipment**: 3 slots (weapon / armor / accessory), 4 rarities, 1–3 random affixes.
+  Items drop on stage clears (guaranteed + rarer on bosses). Inventory tab to equip / sell;
+  a character sheet with the full derived stat block and a per-item stat-delta preview.
+- Save schema is **v2**; old v1 saves migrate automatically on load.
+
 ## What works right now (Milestone 1)
 
 - Real-time 2D side-view auto-battler on a canvas: a warrior (melee) and a mage (ranged
@@ -57,8 +70,6 @@ before starting the next battle with refreshed roster stats and a new seed.
 
 ## Roadmap (not yet implemented)
 
-- **M2** — Party & gear: 4 full classes, roster/recruit, front/back line slots, character
-  sheet, equipment (weapon/armour/accessory), item rarity & affixes, drops, inventory.
 - **M3** — Skills: per-class active/passive skills, unlocked by level, cast by the sim on
   cooldown/target rules (heal, AoE, taunt, DoT, shield, buff…); combat log.
 - **M4** — Meta skill tree: tree currency, prerequisite nodes with ranks, aggregated
