@@ -57,8 +57,9 @@
   "inventory.empty": "Aún no hay objetos. Supera niveles para encontrar equipo.",
   "inventory.sellCommons": "Vender todos los comunes",
   "inventory.sell": "Vender ({n})",
-  "inventory.equipOn": "Equipar a…",
+  "inventory.equipOn": "Equipar a:",
   "inventory.count": "{n} objetos",
+  "inventory.dragHint": "Arrastra un objeto a la ranura de un héroe para equiparlo, o tócalo para ver opciones.",
 
   "rarity.common": "Común",
   "rarity.uncommon": "Poco común",

@@ -57,8 +57,9 @@
   "inventory.empty": "No items yet. Clear stages to find gear.",
   "inventory.sellCommons": "Sell all common",
   "inventory.sell": "Sell ({n})",
-  "inventory.equipOn": "Equip on…",
+  "inventory.equipOn": "Equip on:",
   "inventory.count": "{n} items",
+  "inventory.dragHint": "Drag an item onto a hero's slot to equip it, or tap it for options.",
 
   "rarity.common": "Common",
   "rarity.uncommon": "Uncommon",

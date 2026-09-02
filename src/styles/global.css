@@ -558,19 +558,168 @@ button.active {
   margin: 1px 0;
 }
 
-.inv-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 10px;
+.inv-hint {
+  font-size: 12px;
+  margin: 8px 0 4px;
 }
-.inv-grid select {
-  background: var(--bg-panel);
-  color: var(--text);
+
+/* --- equipment slots per hero --------------------------------- */
+.equip-heroes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 8px 0 16px;
+}
+.equip-hero {
+  background: var(--bg-panel-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 4px 6px;
-  font: inherit;
+  padding: 8px 10px;
+}
+.equip-hero-name {
   font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.equip-hero-slots {
+  display: flex;
+  gap: 6px;
+}
+
+.slot-square {
+  width: 52px;
+  height: 52px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #10131f;
+}
+.slot-square.armed {
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(108, 140, 255, 0.35) inset;
+}
+.slot-ghost {
+  font-size: 20px;
+  opacity: 0.28;
+  filter: grayscale(1);
+}
+
+/* --- inventory grid of squares ------------------------------ */
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 6px;
+  max-width: 560px;
+}
+.item-square {
+  position: relative;
+  aspect-ratio: 1;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+}
+.item-square:active {
+  cursor: grabbing;
+}
+.item-square.empty {
+  border-style: dashed;
+  border-width: 1px;
+  background: #10131f;
+  cursor: default;
+}
+.item-square.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.item-square.sq-slot {
+  width: 100%;
+  height: 100%;
+  border-width: 2px;
+}
+.item-square .sq-glyph {
+  font-size: 22px;
+  line-height: 1;
+  pointer-events: none;
+}
+.item-square.sq-slot .sq-glyph {
+  font-size: 18px;
+}
+.item-square .sq-ilvl {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-size: 9px;
+  color: var(--text-dim);
+  pointer-events: none;
+}
+.item-square.rarity-uncommon {
+  background: rgba(90, 209, 122, 0.1);
+}
+.item-square.rarity-rare {
+  background: rgba(108, 140, 255, 0.12);
+}
+.item-square.rarity-epic {
+  background: rgba(200, 116, 255, 0.14);
+}
+
+/* hover tooltip */
+.sq-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 180px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 8px;
+  font-size: 12px;
+  display: none;
+  z-index: 5;
+  pointer-events: none;
+}
+.item-square:hover .sq-tip {
+  display: block;
+}
+.sq-tip-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* --- selected item detail bar ----------------------------- */
+.inv-detail {
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.inv-detail-main {
+  flex: 1;
+  min-width: 160px;
+}
+.inv-detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+}
+.inv-detail-actions button {
+  font-size: 12px;
+  padding: 4px 8px;
 }
 
 /* --- M3: skills + combat log ------------------------------------- */
