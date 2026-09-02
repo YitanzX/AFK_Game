@@ -83,7 +83,13 @@ export function applyFragments(
     pool = have - cost;
 
     const level = Math.max(1, Math.floor(averagePartyLevel(nextRoster, nextParty) * 0.6));
-    const hero: RosterUnit = { classId: target, level, xp: 0, equipment: emptyEquipment() };
+    const hero: RosterUnit = {
+      classId: target,
+      level,
+      xp: 0,
+      equipment: emptyEquipment(),
+      skills: {},
+    };
     nextRoster = [...nextRoster, hero];
     recruited.push(target);
 

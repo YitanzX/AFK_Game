@@ -2,9 +2,9 @@ import type { PartySlot, ResolvedHero, RosterUnit } from '../core/types';
 import { emptyEquipment } from '../core/types';
 import { resolveParty } from '../state/store';
 
-/** A RosterUnit with no gear. */
+/** A RosterUnit with no gear and no skills. */
 export function hero(classId: string, level = 1, xp = 0): RosterUnit {
-  return { classId, level, xp, equipment: emptyEquipment() };
+  return { classId, level, xp, equipment: emptyEquipment(), skills: {} };
 }
 
 export const STARTER_ROSTER: RosterUnit[] = [hero('warrior'), hero('mage')];

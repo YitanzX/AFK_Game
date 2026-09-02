@@ -12,10 +12,10 @@ import { starterRoster, defaultParty, MAX_PARTY } from '../content/classes';
 import { isLocale, type Locale } from '../../i18n';
 
 export const SAVE_KEY = 'project_afk_save';
-export const SAVE_VERSION = 2 as const;
+export const SAVE_VERSION = 3 as const;
 
-export interface SaveV2 {
-  version: 2;
+export interface SaveV3 {
+  version: 3;
   /** Stable per-save RNG seed (drives combat & loot seeds). */
   seed: number;
   locale: Locale;
@@ -40,9 +40,9 @@ export interface SaveV2 {
   lastActiveAt: number;
 }
 
-export type Save = SaveV2;
+export type Save = SaveV3;
 
-export function freshSave(now = Date.now()): SaveV2 {
+export function freshSave(now = Date.now()): SaveV3 {
   return {
     version: SAVE_VERSION,
     seed: (Math.random() * 0xffffffff) >>> 0,
@@ -78,7 +78,19 @@ function coerceRosterUnit(v: unknown): RosterUnit | null {
     level: Math.max(1, Math.floor(numberOr(o.level, 1))),
     xp: Math.max(0, Math.floor(numberOr(o.xp, 0))),
     equipment: { weapon: slot('weapon'), armor: slot('armor'), accessory: slot('accessory') },
+    skills: coerceSkills(o.skills),
   };
+}
+
+function coerceSkills(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (v && typeof v === 'object') {
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      const n = Math.max(0, Math.floor(numberOr(val, 0)));
+      if (n > 0) out[k] = n;
+    }
+  }
+  return out;
 }
 
 function isItem(v: unknown): v is Item {
@@ -116,11 +128,11 @@ function coerceParty(v: unknown, roster: RosterUnit[]): PartySlot[] {
   return slots;
 }
 
-/** Normalise any recognised save shape (v1 or v2) to a valid SaveV2. */
-export function coerce(raw: unknown): SaveV2 | null {
+/** Normalise any recognised save shape (v1-v3) to a valid SaveV3. */
+export function coerce(raw: unknown): SaveV3 | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
-  if (o.version !== 1 && o.version !== 2) return null;
+  if (o.version !== 1 && o.version !== 2 && o.version !== 3) return null;
   if (!Array.isArray(o.roster)) return null;
 
   const roster = o.roster
@@ -156,7 +168,7 @@ export function coerce(raw: unknown): SaveV2 | null {
 
 // --- io ---------------------------------------------------------------
 
-export function loadSave(): SaveV2 {
+export function loadSave(): SaveV3 {
   try {
     const text = localStorage.getItem(SAVE_KEY);
     if (!text) return freshSave();
@@ -169,7 +181,7 @@ export function loadSave(): SaveV2 {
 let lastWrite = 0;
 
 /** Write immediately, ignoring the throttle. Use on tab hide / unload. */
-export function writeSaveNow(save: SaveV2): void {
+export function writeSaveNow(save: SaveV3): void {
   try {
     save.lastActiveAt = Date.now();
     localStorage.setItem(SAVE_KEY, JSON.stringify(save));
@@ -180,7 +192,7 @@ export function writeSaveNow(save: SaveV2): void {
 }
 
 /** Throttled write (at most once per `minIntervalMs`). */
-export function writeSaveThrottled(save: SaveV2, minIntervalMs = 5000): void {
+export function writeSaveThrottled(save: SaveV3, minIntervalMs = 5000): void {
   const now = performance.now();
   if (now - lastWrite < minIntervalMs) return;
   writeSaveNow(save);

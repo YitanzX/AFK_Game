@@ -6,6 +6,7 @@
  */
 
 import type { Item, ItemSlot } from './items';
+import type { SkillDef } from '../content/skills';
 
 export type Team = 'ally' | 'enemy';
 
@@ -41,8 +42,10 @@ export interface Unit {
   name: string;
   /** Party index for allies so results can be written back. -1 for enemies. */
   rosterIndex: number;
-  /** Character level for allies (drives class traits); 0 for enemies. */
+  /** Character level for allies (drives class traits & skills); 0 for enemies. */
   level: number;
+  /** Placement for allies; undefined for enemies. */
+  line?: 'front' | 'back';
 
   x: number;
   y: number;
@@ -62,8 +65,65 @@ export interface Unit {
   /** XP awarded to every party member when this unit dies (enemies only). */
   xpValue: number;
 
-  /** Reserved for M3 skills. Unused in M1. */
+  /** Active skills this unit can cast (allies only; empty for enemies). */
+  activeSkills: ResolvedSkill[];
+  /** Seconds until each skill id is castable again. */
   skillCds: Record<string, number>;
+  /** Damage soak that depletes before hp. */
+  shield: number;
+  /** state.elapsed at which the current shield expires. */
+  shieldUntil: number;
+  /** Timed buffs / damage-over-time on this unit. */
+  statusEffects: StatusEffect[];
+  /** state.elapsed at which a taunt this unit applied wears off (0 = none). */
+  tauntUntil: number;
+}
+
+/** A skill bought by a hero, resolved to its current rank + scaled power. */
+export interface ResolvedSkill {
+  id: string;
+  def: SkillDef;
+  rank: number;
+  /** Effect magnitude at this rank (already multiplied). */
+  power: number;
+}
+
+export interface StatusEffect {
+  kind: 'buff' | 'dot';
+  /** For buffs: which stat it scales. */
+  stat?: 'atk' | 'def' | 'attackSpeed';
+  /** For buffs: multiplier, e.g. 1.25. */
+  mult?: number;
+  /** For dots: damage per second. */
+  dps?: number;
+  /** state.elapsed at which it expires. */
+  until: number;
+  /** Skill id that applied it, for de-dup / refresh. */
+  source: string;
+}
+
+export interface FallenAlly {
+  rosterIndex: number;
+  kind: string;
+  name: string;
+  level: number;
+  line: 'front' | 'back';
+  stats: Stats;
+  activeSkills: ResolvedSkill[];
+  x: number;
+  y: number;
+}
+
+export type LogKind = 'skill' | 'heal' | 'death' | 'wave' | 'result' | 'revive';
+
+/** A combat-log line. The UI localises `key` with `vars` when rendering. */
+export interface LogEntry {
+  id: number;
+  /** state.elapsed when logged. */
+  at: number;
+  kind: LogKind;
+  key: string;
+  vars?: Record<string, string | number>;
 }
 
 export interface Projectile {
@@ -111,6 +171,13 @@ export interface CombatState {
   /** Hero fragments dropped this combat (from enemy kills). Never decreases. */
   fragments: number;
 
+  /** Rolling combat log (most recent last), capped by the simulation. */
+  log: LogEntry[];
+  /** Allies that have fallen this combat - source for `revive`. */
+  fallen: FallenAlly[];
+  /** Unit id enemies are currently forced to attack, or null. */
+  tauntTargetId: string | null;
+
   /** Monotonic id counter for spawned entities. */
   nextId: number;
 }
@@ -133,6 +200,8 @@ export interface RosterUnit {
   /** XP accumulated toward the next level (not lifetime XP). */
   xp: number;
   equipment: Equipment;
+  /** skillId -> purchased rank (absent / 0 = not learned). */
+  skills: Record<string, number>;
 }
 
 /** A slot in the active party (subset of the roster, max 4). */
@@ -149,9 +218,11 @@ export interface ResolvedHero {
   partyIndex: number;
   level: number;
   stats: Stats;
+  skills: ResolvedSkill[];
 }
 
 export type { Item, ItemSlot };
+export type { SkillDef };
 
 /** Reward rate while farming a stage, measured from a headless simulation. */
 export interface FarmRates {

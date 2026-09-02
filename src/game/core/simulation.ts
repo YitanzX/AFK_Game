@@ -3,26 +3,37 @@
  *
  * `stepCombat` is called with a *fixed* dt (see loop.ts). It mutates the passed
  * CombatState in place. All randomness goes through the supplied Rng, so a given
- * (seed, roster, stage) always plays out identically - which is what the tests
+ * (seed, party, stage) always plays out identically - which is what the tests
  * rely on.
  *
- * M1 scope: basic attacks only. Melee units close distance and hit directly;
- * ranged units fire travelling projectiles. No skills, no status effects yet -
- * the hooks (`skillCds`, effect handling) are left for M3.
+ * Each tick a unit tries, in order: cast a ready skill whose trigger fires
+ * (allies only), else move toward its target, else basic-attack. Status effects
+ * (buffs / dots / shields / taunt) and class traits resolve after the unit loop.
  */
 
-import type { CombatState, Projectile, ResolvedHero, Stats, Unit } from './types';
+import type {
+  CombatState,
+  LogEntry,
+  LogKind,
+  Projectile,
+  ResolvedHero,
+  ResolvedSkill,
+  Stats,
+  Unit,
+} from './types';
 import { BATTLEFIELD } from './types';
 import type { Rng } from './rng';
 import { basicDamage } from './formulas';
 import { CLASSES } from '../content/classes';
 import { enemyStatsForStage, enemyBounty, ENEMIES } from '../content/enemies';
 import { getStage } from '../content/stages';
+import { shouldCast, type CastContext } from '../systems/skills';
 
 /** A unit counts as ranged (fires projectiles) at or above this range. */
 const RANGED_THRESHOLD = 20;
 const PROJECTILE_SPEED = 140;
 const FLOATER_TTL = 0.8;
+const LOG_CAP = 40;
 
 export interface CombatParams {
   /** The active party, already resolved to derived stats + placement. */
@@ -46,12 +57,26 @@ export function createCombat(params: CombatParams): CombatState {
     rewards: { gold: 0, xp: 0 },
     kills: 0,
     fragments: 0,
+    log: [],
+    fallen: [],
+    tauntTargetId: null,
     nextId: 1,
   };
 
   spawnAllies(state, params.party);
   spawnWave(state, 0);
   return state;
+}
+
+function pushLog(
+  state: CombatState,
+  kind: LogKind,
+  key: string,
+  vars?: Record<string, string | number>,
+): void {
+  const entry: LogEntry = { id: state.nextId++, at: state.elapsed, kind, key, vars };
+  state.log.push(entry);
+  if (state.log.length > LOG_CAP) state.log.splice(0, state.log.length - LOG_CAP);
 }
 
 function id(state: CombatState, prefix: string): string {
@@ -70,9 +95,11 @@ function spawnAllies(state: CombatState, party: ResolvedHero[]): void {
         name: cls?.nameKey ?? hero.classId,
         rosterIndex: hero.partyIndex,
         level: hero.level,
+        line: hero.line,
         x,
         y: laneY(hero.partyIndex, party.length),
         stats: hero.stats,
+        activeSkills: hero.skills.filter((s) => s.def.kind === 'active'),
       }),
     );
   });
@@ -83,6 +110,10 @@ export function spawnWave(state: CombatState, waveIndex: number): void {
   const wave = stageDef.waves[waveIndex];
   if (!wave) return;
   state.wave = waveIndex + 1;
+  pushLog(state, 'wave', wave.isBoss ? 'log.boss' : 'log.wave', {
+    n: state.wave,
+    total: state.totalWaves,
+  });
 
   wave.enemies.forEach((enemyId, i) => {
     const enemy = ENEMIES[enemyId];
@@ -112,13 +143,21 @@ function makeUnit(
     name: string;
     rosterIndex: number;
     level?: number;
+    line?: 'front' | 'back';
     x: number;
     y: number;
     stats: Stats;
     goldValue?: number;
     xpValue?: number;
+    activeSkills?: ResolvedSkill[];
   },
 ): Unit {
+  const activeSkills = opts.activeSkills ?? [];
+  const skillCds: Record<string, number> = {};
+  for (const s of activeSkills) {
+    // Small deterministic stagger so a full loadout doesn't all fire on tick 1.
+    skillCds[s.id] = s.def.cooldown ? Math.min(1.5, s.def.cooldown * 0.35) : 0;
+  }
   return {
     id: id(state, opts.team === 'ally' ? 'a' : 'e'),
     team: opts.team,
@@ -126,6 +165,7 @@ function makeUnit(
     name: opts.name,
     rosterIndex: opts.rosterIndex,
     level: opts.level ?? 0,
+    line: opts.line,
     x: opts.x,
     y: opts.y,
     hp: opts.stats.maxHp,
@@ -135,7 +175,12 @@ function makeUnit(
     dead: false,
     goldValue: opts.goldValue ?? 0,
     xpValue: opts.xpValue ?? 0,
-    skillCds: {},
+    activeSkills,
+    skillCds,
+    shield: 0,
+    shieldUntil: 0,
+    statusEffects: [],
+    tauntUntil: 0,
   };
 }
 
@@ -156,33 +201,91 @@ export function stepCombat(state: CombatState, dt: number, rng: Rng): void {
   const living = (team: Unit['team']) =>
     state.units.filter((u) => u.team === team && !u.dead);
 
-  for (const unit of state.units) {
+  // Snapshot: a revive can push a unit mid-loop; it acts next tick.
+  for (const unit of [...state.units]) {
     if (unit.dead) continue;
     unit.attackCd = Math.max(0, unit.attackCd - dt);
+    for (const sid of Object.keys(unit.skillCds)) {
+      unit.skillCds[sid] = Math.max(0, unit.skillCds[sid] - dt);
+    }
 
-    const enemies = living(unit.team === 'ally' ? 'enemy' : 'ally');
-    if (enemies.length === 0) break;
+    const foes = living(unit.team === 'ally' ? 'enemy' : 'ally');
+    if (foes.length === 0) break;
 
-    const target = acquireTarget(unit, enemies);
+    // 1) cast a ready skill whose trigger fires (allies only)
+    if (unit.team === 'ally' && unit.activeSkills.length > 0) {
+      const ctx: CastContext = {
+        self: unit,
+        allies: living('ally'),
+        enemies: foes,
+        hasFallen: state.fallen.length > 0,
+      };
+      let cast = false;
+      for (const rs of unit.activeSkills) {
+        if ((unit.skillCds[rs.id] ?? 0) > 0) continue;
+        if (!shouldCast(rs.def.trigger, ctx)) continue;
+        castSkill(state, unit, rs, rng);
+        unit.skillCds[rs.id] = rs.def.cooldown ?? 0;
+        cast = true;
+        break;
+      }
+      if (cast) continue;
+    }
+
+    // 2) move toward / 3) basic-attack the target
+    const target = acquireTarget(state, unit, foes);
     unit.targetId = target.id;
 
-    const dist = distance(unit, target);
-    if (dist > unit.stats.range) {
+    if (distance(unit, target) > unit.stats.range) {
       moveToward(unit, target, dt);
       continue;
     }
-
     if (unit.attackCd <= 0) {
       performAttack(state, unit, target, rng);
-      unit.attackCd = 1 / unit.stats.attackSpeed;
+      unit.attackCd = 1 / Math.max(0.2, effectiveStat(unit, 'attackSpeed'));
     }
   }
 
   applyClassTraits(state, dt, rng);
+  tickStatuses(state, dt, rng);
   updateProjectiles(state, dt, rng);
   updateFloaters(state, dt);
   cleanupDead(state);
   resolveOutcome(state);
+}
+
+/** A stat after timed buffs (multiplicative). */
+function effectiveStat(u: Unit, key: 'atk' | 'def' | 'attackSpeed'): number {
+  let v = u.stats[key];
+  for (const e of u.statusEffects) {
+    if (e.kind === 'buff' && e.stat === key && e.mult) v *= e.mult;
+  }
+  return v;
+}
+
+/** Damage-over-time ticks + expiry of buffs / shields. */
+function tickStatuses(state: CombatState, dt: number, rng: Rng): void {
+  for (const u of state.units) {
+    if (u.dead) continue;
+
+    let dotDps = 0;
+    for (const e of u.statusEffects) {
+      if (e.kind === 'dot' && e.dps) dotDps += e.dps;
+    }
+    if (dotDps > 0) {
+      u.hp -= dotDps * dt;
+      if (rng.chance(dt * 2.5)) {
+        spawnFloater(state, u, `${Math.max(1, Math.round(dotDps))}`, 'damage');
+      }
+      if (u.hp <= 0) {
+        registerDeath(state, u);
+        continue;
+      }
+    }
+
+    u.statusEffects = u.statusEffects.filter((e) => e.until > state.elapsed);
+    if (u.shield > 0 && state.elapsed >= u.shieldUntil) u.shield = 0;
+  }
 }
 
 /** Always-on passives (M2: priest party-wide regen). */
@@ -213,26 +316,48 @@ function applyClassTraits(state: CombatState, dt: number, rng: Rng): void {
   }
 }
 
-function acquireTarget(unit: Unit, enemies: Unit[]): Unit {
+function acquireTarget(state: CombatState, unit: Unit, foes: Unit[]): Unit {
+  // Enemies are forced onto an active taunter.
+  if (unit.team === 'enemy' && state.tauntTargetId) {
+    const taunter = foes.find((f) => f.id === state.tauntTargetId);
+    if (taunter && state.elapsed < taunter.tauntUntil) return taunter;
+  }
   // Keep the current target if it is still alive; otherwise pick the nearest.
   if (unit.targetId) {
-    const current = enemies.find((e) => e.id === unit.targetId);
+    const current = foes.find((e) => e.id === unit.targetId);
     if (current) return current;
   }
-  let best = enemies[0];
-  let bestDist = distance(unit, best);
-  for (let i = 1; i < enemies.length; i++) {
-    const d = distance(unit, enemies[i]);
+  return nearest(unit, foes);
+}
+
+function nearest(from: { x: number; y: number }, list: Unit[]): Unit {
+  let best = list[0];
+  let bestDist = distance(from, best);
+  for (let i = 1; i < list.length; i++) {
+    const d = distance(from, list[i]);
     if (d < bestDist) {
-      best = enemies[i];
+      best = list[i];
       bestDist = d;
     }
   }
   return best;
 }
 
+function lowestHpRatio(units: Unit[]): Unit | null {
+  let best: Unit | null = null;
+  let bestR = Infinity;
+  for (const u of units) {
+    const r = u.hp / u.stats.maxHp;
+    if (r < bestR) {
+      best = u;
+      bestR = r;
+    }
+  }
+  return best;
+}
+
 function performAttack(state: CombatState, source: Unit, target: Unit, rng: Rng): void {
-  const roll = basicDamage(source.stats.atk, target.stats.def, {
+  const roll = basicDamage(effectiveStat(source, 'atk'), effectiveStat(target, 'def'), {
     rng,
     critChance: source.stats.critChance,
     critDmg: source.stats.critDmg,
@@ -277,26 +402,193 @@ function updateProjectiles(state: CombatState, dt: number, _rng: Rng): void {
   state.projectiles = next;
 }
 
+function spawnFloater(
+  state: CombatState,
+  at: { x: number; y: number },
+  text: string,
+  kind: 'damage' | 'crit' | 'heal',
+): void {
+  state.floaters.push({ id: `f${state.nextId++}`, x: at.x, y: at.y, text, kind, ttl: FLOATER_TTL });
+}
+
 function applyDamage(state: CombatState, target: Unit, amount: number, crit: boolean): void {
-  if (target.dead) return;
-  target.hp -= amount;
-  state.floaters.push({
-    id: `f${state.nextId++}`,
-    x: target.x,
-    y: target.y,
-    text: crit ? `${amount}!` : `${amount}`,
-    kind: crit ? 'crit' : 'damage',
-    ttl: FLOATER_TTL,
-  });
-  if (target.hp <= 0) {
-    target.hp = 0;
-    target.dead = true;
+  if (target.dead || amount <= 0) return;
+
+  let dmg = amount;
+  if (target.shield > 0) {
+    const soak = Math.min(target.shield, dmg);
+    target.shield -= soak;
+    dmg -= soak;
+    if (dmg <= 0) {
+      spawnFloater(state, target, '0', 'damage');
+      return;
+    }
+  }
+
+  const shown = Math.max(1, Math.round(dmg));
+  target.hp -= dmg;
+  spawnFloater(state, target, crit ? `${shown}!` : `${shown}`, crit ? 'crit' : 'damage');
+  if (target.hp <= 0) registerDeath(state, target);
+}
+
+/** Flag a death and settle its consequences (rewards, or a fallen-ally record). */
+function registerDeath(state: CombatState, unit: Unit): void {
+  if (unit.dead) return;
+  unit.hp = 0;
+  unit.dead = true;
+
+  if (unit.team === 'enemy') {
     // Rewards come exclusively from killing enemies.
-    if (target.team === 'enemy') {
-      state.rewards.gold += target.goldValue;
-      state.rewards.xp += target.xpValue;
-      state.kills += 1;
-      state.fragments += ENEMIES[target.kind]?.fragments ?? 0;
+    state.rewards.gold += unit.goldValue;
+    state.rewards.xp += unit.xpValue;
+    state.kills += 1;
+    state.fragments += ENEMIES[unit.kind]?.fragments ?? 0;
+  } else {
+    state.fallen.push({
+      rosterIndex: unit.rosterIndex,
+      kind: unit.kind,
+      name: unit.name,
+      level: unit.level,
+      line: unit.line ?? 'back',
+      stats: unit.stats,
+      activeSkills: unit.activeSkills,
+      x: unit.x,
+      y: unit.y,
+    });
+    pushLog(state, 'death', 'log.death', { name: unit.name });
+  }
+}
+
+function addOrRefreshStatus(u: Unit, eff: Unit['statusEffects'][number]): void {
+  const existing = u.statusEffects.find((s) => s.source === eff.source);
+  if (existing) Object.assign(existing, eff);
+  else u.statusEffects.push(eff);
+}
+
+function pickEnemyTarget(caster: Unit, enemies: Unit[]): Unit | null {
+  if (enemies.length === 0) return null;
+  if (caster.targetId) {
+    const cur = enemies.find((e) => e.id === caster.targetId);
+    if (cur) return cur;
+  }
+  return nearest(caster, enemies);
+}
+
+/** Apply one skill's effect. Mutates `state`. */
+function castSkill(state: CombatState, caster: Unit, rs: ResolvedSkill, rng: Rng): void {
+  const e = rs.def.effect;
+  if (!e) return;
+  const enemies = state.units.filter((u) => !u.dead && u.team !== caster.team);
+  const allies = state.units.filter((u) => !u.dead && u.team === caster.team);
+  const rank = rs.rank;
+
+  const logCast = (kind: LogKind = 'skill', extra?: Record<string, string | number>) =>
+    pushLog(state, kind, kind === 'heal' ? 'log.heal' : 'log.cast', {
+      caster: caster.name,
+      skill: rs.def.nameKey,
+      ...extra,
+    });
+
+  const nuke = (tgt: Unit) => {
+    const crit = rng.chance(caster.stats.critChance);
+    const dmg =
+      effectiveStat(caster, 'atk') * (('power' in e ? e.power : 0) / 100) * rank *
+      (crit ? caster.stats.critDmg : 1);
+    applyDamage(state, tgt, Math.round(dmg), crit);
+  };
+
+  switch (e.type) {
+    case 'damage': {
+      const tgt = pickEnemyTarget(caster, enemies);
+      if (!tgt) return;
+      nuke(tgt);
+      logCast();
+      break;
+    }
+    case 'aoe_damage': {
+      if (enemies.length === 0) return;
+      for (const tgt of [...enemies]) nuke(tgt);
+      logCast();
+      break;
+    }
+    case 'heal': {
+      const amount = Math.max(1, Math.round(Math.max(1, caster.level) * e.power * rank));
+      const targets =
+        e.scope === 'all' ? allies : e.scope === 'self' ? [caster] : [lowestHpRatio(allies)];
+      for (const t of targets) {
+        if (!t || t.hp >= t.stats.maxHp) continue;
+        t.hp = Math.min(t.stats.maxHp, t.hp + amount);
+        spawnFloater(state, t, `+${amount}`, 'heal');
+      }
+      logCast('heal', { v: amount });
+      break;
+    }
+    case 'shield': {
+      const amount = Math.max(1, Math.round(Math.max(1, caster.level) * e.power * rank));
+      const targets =
+        e.scope === 'all' ? allies : e.scope === 'self' ? [caster] : [lowestHpRatio(allies)];
+      for (const t of targets) {
+        if (!t) continue;
+        t.shield = Math.max(t.shield, amount);
+        t.shieldUntil = state.elapsed + e.duration;
+        spawnFloater(state, t, `+${amount}`, 'heal');
+      }
+      logCast();
+      break;
+    }
+    case 'buff': {
+      const mult = 1 + (e.pct * rank) / 100;
+      const targets = e.scope === 'all' ? allies : [caster];
+      for (const t of targets) {
+        addOrRefreshStatus(t, {
+          kind: 'buff',
+          stat: e.stat,
+          mult,
+          until: state.elapsed + e.duration,
+          source: rs.id,
+        });
+      }
+      logCast();
+      break;
+    }
+    case 'dot': {
+      const tgt = pickEnemyTarget(caster, enemies);
+      if (!tgt) return;
+      const dps = Math.max(1, Math.round(Math.max(1, caster.level) * e.power * rank));
+      addOrRefreshStatus(tgt, {
+        kind: 'dot',
+        dps,
+        until: state.elapsed + e.duration,
+        source: rs.id,
+      });
+      logCast();
+      break;
+    }
+    case 'taunt': {
+      state.tauntTargetId = caster.id;
+      caster.tauntUntil = state.elapsed + e.duration;
+      logCast();
+      break;
+    }
+    case 'revive': {
+      const f = state.fallen.shift();
+      if (!f) return;
+      const u = makeUnit(state, {
+        team: 'ally',
+        kind: f.kind,
+        name: f.name,
+        rosterIndex: f.rosterIndex,
+        level: f.level,
+        line: f.line,
+        x: f.x,
+        y: f.y,
+        stats: f.stats,
+        activeSkills: f.activeSkills,
+      });
+      u.hp = Math.max(1, Math.round(f.stats.maxHp * (e.hpPct / 100)));
+      state.units.push(u);
+      pushLog(state, 'revive', 'log.revive', { caster: caster.name, target: f.name });
+      break;
     }
   }
 }
@@ -323,11 +615,13 @@ function resolveOutcome(state: CombatState): void {
 
   if (allies.length === 0) {
     state.outcome = 'defeat';
+    pushLog(state, 'result', 'log.defeat');
     return;
   }
   if (enemies.length === 0) {
     if (state.wave >= state.totalWaves) {
       state.outcome = 'victory';
+      pushLog(state, 'result', 'log.victory');
     } else {
       spawnWave(state, state.wave); // state.wave is 1-based -> next index
     }

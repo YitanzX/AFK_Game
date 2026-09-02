@@ -22,6 +22,8 @@ import {
 } from './persistence';
 import { grantXpToParty } from '../systems/progression';
 import { deriveUnitStats } from '../systems/stats';
+import { resolveSkills } from '../systems/skills';
+import { SKILLS, availablePoints } from '../content/skills';
 import { applyFragments } from '../systems/recruit';
 import { rollDrop } from '../systems/loot';
 import { computeOfflineProgress, estimateFarmRates, type OfflineProgress } from '../systems/afk';
@@ -41,6 +43,7 @@ export function resolveParty(roster: RosterUnit[], party: PartySlot[]): Resolved
       partyIndex: out.length,
       level: unit.level,
       stats: deriveUnitStats(unit),
+      skills: resolveSkills(unit),
     });
   }
   return out;
@@ -89,6 +92,8 @@ interface GameState {
   unequipItem: (classId: string, slot: Item['slot']) => void;
   sellItem: (itemId: string) => void;
   sellItems: (pred: (i: Item) => boolean) => void;
+  spendSkillPoint: (classId: string, skillId: string) => void;
+  respecSkills: (classId: string) => void;
   dismissOfflineSummary: () => void;
   dismissRecruits: () => void;
   touchActive: () => void;
@@ -311,6 +316,37 @@ export const useGameStore = create<GameState>((set, get) => ({
     writeSaveThrottled(get().snapshotSave());
   },
 
+  spendSkillPoint: (classId, skillId) => {
+    const s = get();
+    const idx = s.roster.findIndex((r) => r.classId === classId);
+    const def = SKILLS[skillId];
+    if (idx < 0 || !def || def.classId !== classId) return;
+
+    const hero = s.roster[idx];
+    const rank = hero.skills[skillId] ?? 0;
+    if (rank >= def.maxRank) return;
+    if (hero.level < def.unlockLevel) return;
+    if (def.requires && (hero.skills[def.requires] ?? 0) < 1) return;
+    if (availablePoints(hero) < def.costPerRank) return;
+
+    const roster = s.roster.map((r, i) =>
+      i === idx ? { ...r, skills: { ...r.skills, [skillId]: rank + 1 } } : r,
+    );
+    set({ roster, loadoutRev: s.loadoutRev + 1 });
+    writeSaveThrottled(get().snapshotSave());
+  },
+
+  respecSkills: (classId) => {
+    const s = get();
+    const idx = s.roster.findIndex((r) => r.classId === classId);
+    if (idx < 0 || Object.keys(s.roster[idx].skills).length === 0) return;
+    set({
+      roster: s.roster.map((r, i) => (i === idx ? { ...r, skills: {} } : r)),
+      loadoutRev: s.loadoutRev + 1,
+    });
+    writeSaveNow(get().snapshotSave());
+  },
+
   dismissOfflineSummary: () => set({ offlineSummary: null }),
   dismissRecruits: () => set({ recentRecruits: [] }),
 
@@ -348,7 +384,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   snapshotSave: () => {
     const s = get();
     return {
-      version: 2,
+      version: 3,
       seed: s.seed,
       locale: s.locale,
       gold: Math.floor(s.gold),

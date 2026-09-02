@@ -10,6 +10,7 @@
 import type { AffixStat, Item } from '../core/items';
 import type { RosterUnit, Stats } from '../core/types';
 import { statsForLevel } from '../content/classes';
+import { passiveStatMods } from './skills';
 
 const CRIT_CHANCE_CAP = 0.75;
 const ATTACK_SPEED_CAP = 3;
@@ -32,6 +33,12 @@ export function deriveUnitStats(unit: RosterUnit): Stats {
       if (affix.isPercent) pct[affix.stat] += affix.value;
       else s[affix.stat] += affix.value;
     }
+  }
+
+  // Passive skills contribute the same way as affixes.
+  for (const mod of passiveStatMods(unit)) {
+    if (mod.isPercent) pct[mod.stat] += mod.value;
+    else s[mod.stat] += mod.value;
   }
 
   for (const stat of PERCENTABLE) {

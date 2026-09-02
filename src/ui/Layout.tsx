@@ -3,12 +3,14 @@ import { useT } from '../i18n';
 import { battleController } from '../game/state/battleController';
 import { CombatCanvas } from './CombatCanvas';
 import { PartyPanel } from './PartyPanel';
+import { CombatLog } from './CombatLog';
 import { PartyTab } from './tabs/PartyTab';
 import { InventoryTab } from './tabs/InventoryTab';
+import { SkillsTab } from './tabs/SkillsTab';
 
 type Tab = 'battle' | 'party' | 'inventory' | 'skills' | 'tree';
 const TABS: Tab[] = ['battle', 'party', 'inventory', 'skills', 'tree'];
-const ENABLED: Tab[] = ['battle', 'party', 'inventory'];
+const ENABLED: Tab[] = ['battle', 'party', 'inventory', 'skills'];
 const SPEEDS = [1, 2, 4];
 
 export function Layout() {
@@ -60,14 +62,16 @@ export function Layout() {
       {tab === 'battle' && (
         <div className="battle-layout">
           <CombatCanvas />
-          <PartyPanel />
+          <div className="battle-side">
+            <PartyPanel />
+            <CombatLog />
+          </div>
         </div>
       )}
       {tab === 'party' && <PartyTab />}
       {tab === 'inventory' && <InventoryTab />}
-      {(tab === 'skills' || tab === 'tree') && (
-        <div className="panel coming-soon">{t('tab.comingSoon')}</div>
-      )}
+      {tab === 'skills' && <SkillsTab />}
+      {tab === 'tree' && <div className="panel coming-soon">{t('tab.comingSoon')}</div>}
     </>
   );
 }

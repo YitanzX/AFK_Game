@@ -130,6 +130,7 @@ export function starterRoster(): RosterUnit[] {
     level: 1,
     xp: 0,
     equipment: emptyEquipment(),
+    skills: {},
   }));
 }
 

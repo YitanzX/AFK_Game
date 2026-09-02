@@ -15,6 +15,18 @@ npm run build    # type-check + production build
 npm run preview  # serve the production build
 ```
 
+## Milestone 3 (skills)
+
+- **Skill points**: heroes earn 1 per level, spent to learn and rank up class skills in the
+  new Skills tab (with a free respec). 20 skills, 5 per class, gated by level + light prereqs.
+- The combat AI **casts skills automatically by condition** — heal when an ally drops low,
+  AoE when there are 2+ enemies, taunt when the back line is targeted, revive when someone
+  falls, and so on. Passives fold into the hero's stats.
+- Effect kinds: single / AoE damage, heal, shield, timed buffs, damage-over-time, taunt,
+  revive.
+- **Combat log** panel next to the battle showing casts, heals, deaths, waves, results.
+- Save schema is **v3**; v1/v2 saves migrate automatically.
+
 ## Milestone 2 (party, recruiting, equipment)
 
 - **Party of up to 4** with front / back lines. A larger bench of recruited heroes; field
@@ -70,8 +82,6 @@ before starting the next battle with refreshed roster stats and a new seed.
 
 ## Roadmap (not yet implemented)
 
-- **M3** — Skills: per-class active/passive skills, unlocked by level, cast by the sim on
-  cooldown/target rules (heal, AoE, taunt, DoT, shield, buff…); combat log.
 - **M4** — Meta skill tree: tree currency, prerequisite nodes with ranks, aggregated
   `MetaBonuses` feeding formulas & stat derivation (+% XP / gold / AFK cap / party stats…),
   respec.
