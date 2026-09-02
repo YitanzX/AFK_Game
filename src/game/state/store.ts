@@ -27,6 +27,7 @@ import { SKILLS, availablePoints } from '../content/skills';
 import { applyFragments } from '../systems/recruit';
 import { rollDrop } from '../systems/loot';
 import { computeOfflineProgress, estimateFarmRates, type OfflineProgress } from '../systems/afk';
+import { xpGainScale } from '../core/formulas';
 import { mulberry32, hashSeed } from '../core/rng';
 import { MAX_PARTY } from '../content/classes';
 import { getLocale, setLocale as setI18nLocale, type Locale } from '../../i18n';
@@ -140,7 +141,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const offline = computeOfflineProgress({ lastActiveAt: save.lastActiveAt, now, rates });
 
     // Offline XP goes to the fielded party only; apply straight away.
-    const { roster } = grantXpToParty(save.roster, activeClassIds(save.party), offline.xp);
+    const offStage = idleStage(save.maxStageCleared);
+    const { roster } = grantXpToParty(
+      save.roster,
+      activeClassIds(save.party),
+      offline.xp,
+      (u) => xpGainScale(u.level, offStage),
+    );
 
     setI18nLocale(save.locale);
 
@@ -180,7 +187,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       lastActiveAt: Date.now(),
     };
     if (xp > 0) {
-      const { roster, leveledUp } = grantXpToParty(s.roster, activeClassIds(s.party), xp);
+      const { roster, leveledUp } = grantXpToParty(
+        s.roster,
+        activeClassIds(s.party),
+        xp,
+        (u) => xpGainScale(u.level, s.farmingStage),
+      );
       patch.roster = roster;
       if (leveledUp.length > 0) {
         patch.recentLevelUps = leveledUp;

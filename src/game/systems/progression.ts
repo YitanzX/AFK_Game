@@ -41,17 +41,22 @@ export function grantXpToRoster(roster: RosterUnit[], amount: number): XpResult 
 /**
  * Grant `amount` XP only to roster members whose classId is in `activeClassIds`
  * (the fielded party). Benched heroes are left untouched.
+ *
+ * `scaleFor` (optional) returns a per-hero multiplier on `amount` - used for the
+ * level/stage catch-up scaling so an over-levelled hero gains less.
  */
 export function grantXpToParty(
   roster: RosterUnit[],
   activeClassIds: readonly string[],
   amount: number,
+  scaleFor?: (unit: RosterUnit) => number,
 ): XpResult {
   const active = new Set(activeClassIds);
   const leveledUp: number[] = [];
   const next = roster.map((unit, index) => {
     if (!active.has(unit.classId)) return unit;
-    const r = applyXp(unit, amount);
+    const scaled = amount * (scaleFor ? scaleFor(unit) : 1);
+    const r = applyXp(unit, scaled);
     if (r.gained) leveledUp.push(index);
     return r.unit;
   });

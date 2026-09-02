@@ -6,9 +6,15 @@
 import type { Stats } from './types';
 import type { Rng } from './rng';
 
-/** XP required to go from level `n` to `n + 1`. */
+/**
+ * XP required to go from level `n` to `n + 1`.
+ *
+ * A gentle polynomial for the early game plus an exponential term that grows at
+ * roughly the same rate as stage rewards - so past the first handful of levels
+ * you gain about one level per stage cleared instead of accelerating to the cap.
+ */
 export function xpForLevel(n: number): number {
-  return Math.floor(80 * Math.pow(n, 1.5));
+  return Math.floor(60 * Math.pow(n, 1.5) + 55 * Math.pow(1.135, n));
 }
 
 /** Lifetime XP needed to *reach* level `n` (level 1 = 0). */
@@ -16,6 +22,15 @@ export function totalXpForLevel(n: number): number {
   let total = 0;
   for (let i = 1; i < n; i++) total += xpForLevel(i);
   return total;
+}
+
+/**
+ * XP catch-up / anti-grind multiplier. Under-levelled heroes earn extra XP;
+ * farming a stage far below your level earns much less. ~1x when level ≈ stage.
+ */
+export function xpGainScale(level: number, stage: number): number {
+  const ratio = (Math.max(1, stage) + 10) / (Math.max(1, level) + 10);
+  return Math.min(2.5, Math.max(0.25, ratio));
 }
 
 /** Multiplier applied to base enemy hp/atk for a given stage (stage 1 = x1). */
@@ -45,11 +60,20 @@ export function combatPower(stats: Stats): number {
 }
 
 /**
- * Multiplier on an enemy's base gold/xp bounty for a given stage. Grows a touch
+ * Multiplier on an enemy's base GOLD bounty for a given stage. Grows a touch
  * faster than `enemyScaling` so deeper stages are always the better farm.
  */
 export function rewardScaling(stage: number): number {
   return Math.pow(1.13, Math.max(1, stage) - 1);
+}
+
+/**
+ * Multiplier on an enemy's base XP bounty for a given stage. Deliberately
+ * gentler than gold + the XP curve so levels track stage instead of racing
+ * ahead of it.
+ */
+export function xpRewardScaling(stage: number): number {
+  return Math.pow(1.1, Math.max(1, stage) - 1);
 }
 
 /** Hard cap on how much offline time is rewarded. */

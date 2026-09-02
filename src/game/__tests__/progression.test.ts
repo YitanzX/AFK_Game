@@ -34,7 +34,7 @@ describe('grantXpToRoster', () => {
   });
 
   it('clamps at MAX_LEVEL', () => {
-    const { roster: out } = grantXpToRoster([hero('mage', MAX_LEVEL - 1)], 1e12);
+    const { roster: out } = grantXpToRoster([hero('mage', MAX_LEVEL - 1)], Number.MAX_SAFE_INTEGER);
     expect(out[0].level).toBe(MAX_LEVEL);
     expect(out[0].xp).toBe(0);
   });

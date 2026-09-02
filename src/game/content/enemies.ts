@@ -4,7 +4,7 @@
  */
 
 import type { Stats } from '../core/types';
-import { enemyScaling, rewardScaling } from '../core/formulas';
+import { enemyScaling, rewardScaling, xpRewardScaling } from '../core/formulas';
 
 export interface EnemyDef {
   id: string;
@@ -114,9 +114,8 @@ export function enemyStatsForStage(enemyId: string, stage: number): Stats {
 export function enemyBounty(enemyId: string, stage: number): { gold: number; xp: number } {
   const def = ENEMIES[enemyId];
   if (!def) throw new Error(`Unknown enemy: ${enemyId}`);
-  const mult = rewardScaling(stage);
   return {
-    gold: Math.max(1, Math.round(def.gold * mult)),
-    xp: Math.max(1, Math.round(def.xp * mult)),
+    gold: Math.max(1, Math.round(def.gold * rewardScaling(stage))),
+    xp: Math.max(1, Math.round(def.xp * xpRewardScaling(stage))),
   };
 }
