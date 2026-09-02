@@ -240,7 +240,10 @@ export class CombatScene {
 
     ctx.save();
     if (this.shake > 0.1) {
-      ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
+      ctx.translate(
+        Math.round((Math.random() - 0.5) * this.shake),
+        Math.round((Math.random() - 0.5) * this.shake),
+      );
     }
 
     drawBackground(ctx, w, h, this.time);
@@ -291,10 +294,9 @@ export class CombatScene {
   }
 
   private paintShadow(ctx: CanvasRenderingContext2D, x: number, y: number, ph: number) {
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.beginPath();
-    ctx.ellipse(x, y, ph * 0.32, ph * 0.12, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    const rx = Math.round(ph * 0.32);
+    ctx.fillRect(Math.round(x) - rx, Math.round(y) - 1, rx * 2, 3);
   }
 
   private paintUnit(ctx: CanvasRenderingContext2D, u: Unit, a: UnitAnim) {
@@ -303,7 +305,7 @@ export class CombatScene {
     this.paintShadow(ctx, pr.x, pr.y, ph);
 
     ctx.save();
-    ctx.translate(pr.x, pr.y - a.pose.hit * 3);
+    ctx.translate(Math.round(pr.x), Math.round(pr.y - a.pose.hit * 3));
     ctx.globalAlpha = a.spawn;
     ctx.scale((a.facing * ph) / 100, ph / 100);
     drawSprite(ctx, u.kind, a.pose, tintFor(u.kind));
@@ -333,7 +335,7 @@ export class CombatScene {
     const k = d.t / 0.6;
     this.paintShadow(ctx, pr.x, pr.y, ph * (1 - k * 0.5));
     ctx.save();
-    ctx.translate(pr.x, pr.y);
+    ctx.translate(Math.round(pr.x), Math.round(pr.y));
     ctx.globalAlpha = 1 - k;
     ctx.rotate(d.facing * k * 1.3);
     ctx.scale((d.facing * ph) / 100, ph / 100);

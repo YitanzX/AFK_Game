@@ -1,24 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  --bg: #0f1220;
-  --bg-panel: #191d2e;
-  --bg-panel-2: #222741;
-  --border: #333a5c;
-  --text: #e7e9f3;
-  --text-dim: #9aa0c0;
-  --accent: #6c8cff;
-  --accent-2: #ffcf5c;
-  --good: #58d68d;
-  --bad: #ff6b6b;
+  /* --- pixel-art palette (limited, warm retro RPG) --- */
+  --bg: #14121f;
+  --bg-panel: #241f31;
+  --bg-panel-2: #2f2a40;
+  --bg-inset: #100e18;
+  --border: #4a4361;
+  --border-lo: #0c0a14;
+  --hi: rgba(255, 255, 255, 0.09);
+
+  --text: #ece7d6;
+  --text-dim: #9a92ad;
+
+  --accent: #4f8fd6;
+  --accent-2: #ffcb47;
+  --good: #6fcf6f;
+  --bad: #e35b5b;
   --crit: #ffd93d;
-  --xp: #7c5cff;
-  --hp: #58d68d;
-  --hp-enemy: #ff6b6b;
+  --xp: #a06cff;
+  --hp: #6fcf6f;
+  --hp-enemy: #e35b5b;
 
-  --radius: 10px;
-  --radius-sm: 6px;
+  /* pixel style: no rounding, hard everything */
+  --radius: 0px;
+  --radius-sm: 0px;
   --gap: 12px;
-  --shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --shadow: 4px 4px 0 rgba(0, 0, 0, 0.4);
+  --bevel: inset 2px 2px 0 var(--hi), inset -2px -2px 0 rgba(0, 0, 0, 0.45);
+
+  --font: 'VT323', 'Courier New', monospace;
+  --font-display: 'Press Start 2P', 'VT323', monospace;
 }

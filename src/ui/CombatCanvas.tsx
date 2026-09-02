@@ -5,6 +5,9 @@ import { getStage } from '../game/content/stages';
 import { CombatScene } from './combat/scene';
 import { useT } from '../i18n';
 
+/** Internal render height in "pixels" — the scene draws here, then we upscale. */
+const BUFFER_HEIGHT = 240;
+
 export function CombatCanvas() {
   const { t } = useT();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -24,11 +27,23 @@ export function CombatCanvas() {
     battleController.start();
     const scene = new CombatScene();
 
+    // Low-res offscreen buffer -> nearest-neighbour upscale = pixel-art look.
+    const buffer = document.createElement('canvas');
+    const bctx = buffer.getContext('2d')!;
+    let bw = 320;
+    const bh = BUFFER_HEIGHT;
+
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       canvas.width = Math.max(1, Math.floor(rect.width * dpr));
       canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      const aspect = rect.width / Math.max(1, rect.height);
+      bw = Math.max(1, Math.round(bh * aspect));
+      buffer.width = bw;
+      buffer.height = bh;
+      bctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = false;
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -43,8 +58,12 @@ export function CombatCanvas() {
       last = now;
 
       const combat = battleController.getCombat();
-      scene.update(combat, dt, canvas.width, canvas.height);
-      scene.render(ctx, canvas.width, canvas.height, combat);
+      scene.update(combat, dt, bw, bh);
+      scene.render(bctx, bw, bh, combat);
+
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(buffer, 0, 0, bw, bh, 0, 0, canvas.width, canvas.height);
 
       const wave = getStage(combat.stage).waves[combat.wave - 1];
       const key = `${combat.wave}/${combat.totalWaves}/${wave?.isBoss}/${combat.outcome}`;

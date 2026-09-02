@@ -79,9 +79,8 @@ export class Particles {
     for (const p of this.items) {
       ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.maxLife));
       ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fill();
+      const s = Math.max(1, Math.round(p.size));
+      ctx.fillRect(Math.round(p.x) - (s >> 1), Math.round(p.y) - (s >> 1), s, s);
     }
     ctx.globalAlpha = 1;
   }
@@ -98,25 +97,24 @@ export function drawHpBar(
   chipRatio: number,
   fill: string,
 ): void {
-  const r = h / 2;
-  const rr = (rw: number) => {
-    const width = Math.max(0, rw);
-    if (width <= 0) return;
-    ctx.beginPath();
-    ctx.roundRect(x, y, width, h, Math.min(r, width / 2));
-    ctx.fill();
-  };
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  rr(w);
-  ctx.fillStyle = 'rgba(255,255,255,0.3)'; // lagging chip-damage layer
-  rr(w * Math.max(ratio, Math.min(chipRatio, 1)));
+  const px = Math.round(x);
+  const py = Math.round(y);
+  const pw = Math.round(w);
+  const ph = Math.max(3, Math.round(h));
+  // black pixel frame
+  ctx.fillStyle = '#0c0a14';
+  ctx.fillRect(px - 1, py - 1, pw + 2, ph + 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(px, py, pw, ph);
+  // lagging chip-damage layer
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  ctx.fillRect(px, py, Math.round(pw * Math.max(ratio, Math.min(chipRatio, 1))), ph);
+  // fill + a lighter top pixel row
+  const fw = Math.round(pw * Math.max(0, Math.min(ratio, 1)));
   ctx.fillStyle = fill;
-  rr(w * Math.max(0, Math.min(ratio, 1)));
-  ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-  ctx.stroke();
+  ctx.fillRect(px, py, fw, ph);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillRect(px, py, fw, 1);
 }
 
 export interface FloaterView {
@@ -128,19 +126,25 @@ export interface FloaterView {
   maxTtl: number;
 }
 
+const PIXEL_FONT = '"Press Start 2P", "VT323", monospace';
+
 export function drawFloater(ctx: CanvasRenderingContext2D, f: FloaterView, unit: number): void {
   const age = 1 - f.ttl / f.maxTtl;
-  const pop = f.kind === 'crit' ? 1.3 : 1;
+  const pop = f.kind === 'crit' ? 1.25 : 1;
   const scale = pop * (age < 0.15 ? age / 0.15 : 1);
-  const size = unit * (f.kind === 'crit' ? 2.4 : 1.7) * scale;
-  ctx.globalAlpha = Math.max(0, Math.min(1, f.ttl / f.maxTtl) * 1.4);
-  ctx.font = `700 ${Math.round(size)}px system-ui, sans-serif`;
+  const size = Math.max(5, Math.round(unit * (f.kind === 'crit' ? 0.9 : 0.65) * scale));
+  const x = Math.round(f.x);
+  const y = Math.round(f.y);
+  ctx.globalAlpha = Math.max(0, Math.min(1, (f.ttl / f.maxTtl) * 1.4));
+  ctx.font = `${size}px ${PIXEL_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.lineWidth = Math.max(2, size * 0.16);
-  ctx.strokeStyle = TEXT.outline;
-  ctx.strokeText(f.text, f.x, f.y);
+  // 1px pixel outline via 4 offset draws
+  ctx.fillStyle = '#0c0a14';
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) {
+    ctx.fillText(f.text, x + dx, y + dy);
+  }
   ctx.fillStyle = f.kind === 'crit' ? TEXT.crit : f.kind === 'heal' ? TEXT.heal : TEXT.damage;
-  ctx.fillText(f.text, f.x, f.y);
+  ctx.fillText(f.text, x, y);
   ctx.globalAlpha = 1;
 }

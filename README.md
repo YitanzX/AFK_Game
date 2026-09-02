@@ -4,6 +4,8 @@ Browser AFK / idle RPG. Your party fights on its own, clears endless stages, lev
 and earns rewards even while you're away.
 
 **Stack:** TypeScript + React + Vite · Zustand · Canvas 2D · Vitest · localStorage only.
+**Style:** pixel art — the combat scene renders to a low-res buffer and upscales
+nearest-neighbour; pixel fonts (Press Start 2P / VT323) and blocky UI chrome throughout.
 
 ## Scripts
 
