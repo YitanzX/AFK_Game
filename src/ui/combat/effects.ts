@@ -16,7 +16,7 @@ export interface Particle {
 
 export class Particles {
   private items: Particle[] = [];
-  private readonly cap = 320;
+  private readonly cap = 120;
 
   get count(): number {
     return this.items.length;
@@ -30,18 +30,18 @@ export class Particles {
   /** A directional shower of sparks (hits). */
   burst(x: number, y: number, dir: number, n: number, color: string): void {
     for (let i = 0; i < n; i++) {
-      const a = dir + (Math.random() - 0.5) * 1.6;
-      const sp = 60 + Math.random() * 180;
+      const a = dir + (Math.random() - 0.5) * 1.4;
+      const sp = 50 + Math.random() * 120;
       this.spawn({
         x,
         y,
         vx: Math.cos(a) * sp,
-        vy: Math.sin(a) * sp - 40,
-        life: 0.35 + Math.random() * 0.35,
-        maxLife: 0.7,
-        size: 1.5 + Math.random() * 2.5,
+        vy: Math.sin(a) * sp - 30,
+        life: 0.22 + Math.random() * 0.2,
+        maxLife: 0.42,
+        size: 2 + Math.random() * 2,
         color,
-        gravity: 420,
+        gravity: 380,
       });
     }
   }
@@ -49,18 +49,18 @@ export class Particles {
   /** A radial pop (deaths / impacts). */
   pop(x: number, y: number, n: number, color: string): void {
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + Math.random() * 0.4;
-      const sp = 80 + Math.random() * 160;
+      const a = (i / n) * Math.PI * 2;
+      const sp = 60 + Math.random() * 110;
       this.spawn({
         x,
         y,
         vx: Math.cos(a) * sp,
         vy: Math.sin(a) * sp,
-        life: 0.4 + Math.random() * 0.4,
-        maxLife: 0.8,
-        size: 2 + Math.random() * 3,
+        life: 0.3 + Math.random() * 0.25,
+        maxLife: 0.55,
+        size: 2 + Math.random() * 2.5,
         color,
-        gravity: 200,
+        gravity: 180,
       });
     }
   }

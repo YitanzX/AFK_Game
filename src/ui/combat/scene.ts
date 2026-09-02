@@ -98,7 +98,7 @@ export class CombatScene {
   }
 
   private get unitPx(): number {
-    return Math.max(24, Math.min(60, this.h * 0.15));
+    return Math.max(40, Math.min(88, this.h * 0.2));
   }
 
   /** Screen-space point around a unit's torso, for spawning particles. */
@@ -111,8 +111,8 @@ export class CombatScene {
     this.w = w;
     this.h = h;
     this.time += dt;
-    this.shake = Math.max(0, this.shake - dt * 60);
-    this.flash.a = Math.max(0, this.flash.a - dt * 1.6);
+    this.shake = Math.max(0, this.shake - dt * 95);
+    this.flash.a = Math.max(0, this.flash.a - dt * 2.2);
 
     // A new battle replaces the whole CombatState object — drop stale anim
     // state (entity ids are reused across battles).
@@ -164,17 +164,14 @@ export class CombatScene {
       // just attacked: cooldown jumped back up
       if (u.attackCd - a.prevCd > 0.05) {
         a.pose.attack = 1;
-        if (u.stats.range < 20) {
-          this.particles.burst(torso.x, torso.y, a.facing === 1 ? 0 : Math.PI, 5, '#ffe6b0');
-        }
       }
       a.prevCd = u.attackCd;
 
-      // took damage
+      // took damage - small recoil + a couple of sparks
       if (u.hp < a.prevHp - 0.5) {
         a.pose.hit = 1;
-        this.shake = Math.min(9, this.shake + 2.5);
-        this.particles.burst(torso.x, torso.y, a.facing === 1 ? Math.PI : 0, 6, TEAM[u.team].ring);
+        this.shake = Math.min(4, this.shake + 1.1);
+        this.particles.burst(torso.x, torso.y, a.facing === 1 ? Math.PI : 0, 3, TEAM[u.team].ring);
       }
       a.prevHp = u.hp;
 
@@ -201,8 +198,8 @@ export class CombatScene {
         tint: tintFor(a.kind),
       });
       const tp = this.torsoPoint(a.rx, a.ry);
-      this.particles.pop(tp.x, tp.y, 14, tintFor(a.kind).a);
-      this.shake = Math.min(12, this.shake + (a.kind === 'ogre' ? 10 : 3));
+      this.particles.pop(tp.x, tp.y, a.kind === 'ogre' ? 12 : 7, tintFor(a.kind).a);
+      this.shake = Math.min(6, this.shake + (a.kind === 'ogre' ? 5 : 1.6));
       this.anims.delete(id);
     }
 
@@ -273,13 +270,13 @@ export class CombatScene {
         ctx,
         {
           x: pr.x,
-          y: pr.y - this.unitPx * 1.1,
+          y: pr.y - this.unitPx * 1.15,
           text: f.text,
           kind: f.kind,
           ttl: f.ttl,
-          maxTtl: 0.8,
+          maxTtl: 0.55,
         },
-        this.unitPx * 0.5,
+        this.unitPx * 0.42,
       );
     }
 
@@ -312,16 +309,16 @@ export class CombatScene {
     ctx.restore();
     ctx.globalAlpha = 1;
 
-    // hp bar (enemies always; allies only when hurt, to cut clutter)
+    // hp bar - always shown (skip the ogre; it has the big top bar)
     const ratio = u.hp / u.stats.maxHp;
-    if (u.kind !== 'ogre' && (u.team === 'enemy' || ratio < 0.999)) {
-      const bw = Math.max(24, ph * 0.9);
+    if (u.kind !== 'ogre') {
+      const bw = Math.max(28, ph * 0.95);
       drawHpBar(
         ctx,
         pr.x - bw / 2,
-        pr.y - ph * 1.05,
+        pr.y - ph * 1.08,
         bw,
-        Math.max(4, ph * 0.07),
+        Math.max(5, ph * 0.09),
         ratio,
         a.chip,
         TEAM[u.team].hp,

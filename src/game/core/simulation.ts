@@ -32,7 +32,7 @@ import { shouldCast, type CastContext } from '../systems/skills';
 /** A unit counts as ranged (fires projectiles) at or above this range. */
 const RANGED_THRESHOLD = 20;
 const PROJECTILE_SPEED = 140;
-const FLOATER_TTL = 0.8;
+const FLOATER_TTL = 0.55;
 const LOG_CAP = 40;
 
 export interface CombatParams {
@@ -274,7 +274,7 @@ function tickStatuses(state: CombatState, dt: number, rng: Rng): void {
     }
     if (dotDps > 0) {
       u.hp -= dotDps * dt;
-      if (rng.chance(dt * 2.5)) {
+      if (rng.chance(dt * 1.3)) {
         spawnFloater(state, u, `${Math.max(1, Math.round(dotDps))}`, 'damage');
       }
       if (u.hp <= 0) {
@@ -303,7 +303,7 @@ function applyClassTraits(state: CombatState, dt: number, rng: Rng): void {
     if (u.dead || u.team !== 'ally' || u.hp >= u.stats.maxHp) continue;
     u.hp = Math.min(u.stats.maxHp, u.hp + heal);
     // Occasional heal number so it reads on screen without spamming.
-    if (rng.chance(dt * 1.2)) {
+    if (rng.chance(dt * 0.55)) {
       state.floaters.push({
         id: `f${state.nextId++}`,
         x: u.x,
@@ -376,11 +376,11 @@ function performAttack(state: CombatState, source: Unit, target: Unit, rng: Rng)
       crit: roll.crit,
     });
   } else {
-    applyDamage(state, target, roll.amount, roll.crit);
+    applyDamage(state, target, roll.amount, roll.crit, roll.crit || rng.chance(0.5));
   }
 }
 
-function updateProjectiles(state: CombatState, dt: number, _rng: Rng): void {
+function updateProjectiles(state: CombatState, dt: number, rng: Rng): void {
   const next: Projectile[] = [];
   for (const p of state.projectiles) {
     const target = state.units.find((u) => u.id === p.targetId);
@@ -392,7 +392,7 @@ function updateProjectiles(state: CombatState, dt: number, _rng: Rng): void {
     const travel = p.speed * dt;
 
     if (d <= travel + 3) {
-      applyDamage(state, target, p.damage, p.crit);
+      applyDamage(state, target, p.damage, p.crit, p.crit || rng.chance(0.5));
       continue;
     }
     p.x += (dx / d) * travel;
@@ -411,7 +411,13 @@ function spawnFloater(
   state.floaters.push({ id: `f${state.nextId++}`, x: at.x, y: at.y, text, kind, ttl: FLOATER_TTL });
 }
 
-function applyDamage(state: CombatState, target: Unit, amount: number, crit: boolean): void {
+function applyDamage(
+  state: CombatState,
+  target: Unit,
+  amount: number,
+  crit: boolean,
+  showFloater = true,
+): void {
   if (target.dead || amount <= 0) return;
 
   let dmg = amount;
@@ -419,15 +425,14 @@ function applyDamage(state: CombatState, target: Unit, amount: number, crit: boo
     const soak = Math.min(target.shield, dmg);
     target.shield -= soak;
     dmg -= soak;
-    if (dmg <= 0) {
-      spawnFloater(state, target, '0', 'damage');
-      return;
-    }
+    if (dmg <= 0) return;
   }
 
   const shown = Math.max(1, Math.round(dmg));
   target.hp -= dmg;
-  spawnFloater(state, target, crit ? `${shown}!` : `${shown}`, crit ? 'crit' : 'damage');
+  if (showFloater || crit) {
+    spawnFloater(state, target, crit ? `${shown}!` : `${shown}`, crit ? 'crit' : 'damage');
+  }
   if (target.hp <= 0) registerDeath(state, target);
 }
 
