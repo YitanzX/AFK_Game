@@ -181,6 +181,87 @@ const DEFS: SkillDef[] = [
     unlockLevel: 10, priority: 85, cooldown: 12, trigger: { selfHpBelow: 50 },
     effect: { type: 'buff', stat: 'def', pct: 40, duration: 4 },
   },
+
+  // --- extra branches (expansion) -----------------------------------
+  {
+    id: 'warrior_bash', classId: 'warrior', nameKey: 'skill.warrior_bash',
+    descKey: 'skilldesc.warrior_bash', kind: 'active', maxRank: 5, costPerRank: 1,
+    unlockLevel: 2, priority: 22, cooldown: 4, trigger: 'always',
+    effect: { type: 'damage', power: 100 },
+  },
+  {
+    id: 'warrior_rampage', classId: 'warrior', nameKey: 'skill.warrior_rampage',
+    descKey: 'skilldesc.warrior_rampage', kind: 'passive', maxRank: 5, costPerRank: 1,
+    unlockLevel: 8, priority: 0, requires: 'warrior_cleave',
+    passiveMod: { stat: 'atk', perRank: 4, isPercent: true },
+  },
+  {
+    id: 'warrior_laststand', classId: 'warrior', nameKey: 'skill.warrior_laststand',
+    descKey: 'skilldesc.warrior_laststand', kind: 'active', maxRank: 4, costPerRank: 1,
+    unlockLevel: 14, priority: 88, cooldown: 16, trigger: { selfHpBelow: 35 },
+    requires: 'warrior_secondwind',
+    effect: { type: 'shield', power: 10, duration: 6, scope: 'self' },
+  },
+
+  {
+    id: 'mage_frost', classId: 'mage', nameKey: 'skill.mage_frost',
+    descKey: 'skilldesc.mage_frost', kind: 'active', maxRank: 5, costPerRank: 1,
+    unlockLevel: 4, priority: 42, cooldown: 5, trigger: { enemiesAtLeast: 2 },
+    requires: 'mage_firebolt',
+    effect: { type: 'aoe_damage', power: 40 },
+  },
+  {
+    id: 'mage_ward', classId: 'mage', nameKey: 'skill.mage_ward',
+    descKey: 'skilldesc.mage_ward', kind: 'passive', maxRank: 5, costPerRank: 1,
+    unlockLevel: 8, priority: 0,
+    passiveMod: { stat: 'maxHp', perRank: 5, isPercent: true },
+  },
+  {
+    id: 'mage_surge', classId: 'mage', nameKey: 'skill.mage_surge',
+    descKey: 'skilldesc.mage_surge', kind: 'active', maxRank: 5, costPerRank: 1,
+    unlockLevel: 12, priority: 32, cooldown: 12, trigger: 'always', requires: 'mage_focus',
+    effect: { type: 'buff', stat: 'atk', pct: 20, duration: 6, scope: 'self' },
+  },
+
+  {
+    id: 'priest_smite', classId: 'priest', nameKey: 'skill.priest_smite',
+    descKey: 'skilldesc.priest_smite', kind: 'active', maxRank: 5, costPerRank: 1,
+    unlockLevel: 3, priority: 24, cooldown: 4, trigger: 'always',
+    effect: { type: 'damage', power: 70 },
+  },
+  {
+    id: 'priest_zeal', classId: 'priest', nameKey: 'skill.priest_zeal',
+    descKey: 'skilldesc.priest_zeal', kind: 'passive', maxRank: 5, costPerRank: 1,
+    unlockLevel: 6, priority: 0,
+    passiveMod: { stat: 'atk', perRank: 4, isPercent: true },
+  },
+  {
+    id: 'priest_sanctuary', classId: 'priest', nameKey: 'skill.priest_sanctuary',
+    descKey: 'skilldesc.priest_sanctuary', kind: 'active', maxRank: 4, costPerRank: 1,
+    unlockLevel: 10, priority: 65, cooldown: 14, trigger: { allyHpBelow: 70 },
+    requires: 'priest_shield',
+    effect: { type: 'shield', power: 6, duration: 6, scope: 'all' },
+  },
+
+  {
+    id: 'rogue_shadowstep', classId: 'rogue', nameKey: 'skill.rogue_shadowstep',
+    descKey: 'skilldesc.rogue_shadowstep', kind: 'passive', maxRank: 5, costPerRank: 1,
+    unlockLevel: 4, priority: 0,
+    passiveMod: { stat: 'critChance', perRank: 0.02, isPercent: false },
+  },
+  {
+    id: 'rogue_ambush', classId: 'rogue', nameKey: 'skill.rogue_ambush',
+    descKey: 'skilldesc.rogue_ambush', kind: 'active', maxRank: 5, costPerRank: 1,
+    unlockLevel: 10, priority: 18, cooldown: 5, trigger: 'always', requires: 'rogue_backstab',
+    effect: { type: 'damage', power: 150 },
+  },
+  {
+    id: 'rogue_fan', classId: 'rogue', nameKey: 'skill.rogue_fan',
+    descKey: 'skilldesc.rogue_fan', kind: 'active', maxRank: 5, costPerRank: 1,
+    unlockLevel: 12, priority: 42, cooldown: 6, trigger: { enemiesAtLeast: 2 },
+    requires: 'rogue_bladedance',
+    effect: { type: 'aoe_damage', power: 35 },
+  },
 ];
 
 export const SKILLS: Record<string, SkillDef> = Object.fromEntries(

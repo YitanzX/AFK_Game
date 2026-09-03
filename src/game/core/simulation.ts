@@ -100,6 +100,8 @@ function spawnAllies(state: CombatState, party: ResolvedHero[]): void {
         y: laneY(hero.partyIndex, party.length),
         stats: hero.stats,
         activeSkills: hero.skills.filter((s) => s.def.kind === 'active'),
+        lifesteal: hero.lifesteal ?? 0,
+        skillCdMult: hero.skillCdMult ?? 1,
       }),
     );
   });
@@ -150,13 +152,16 @@ function makeUnit(
     goldValue?: number;
     xpValue?: number;
     activeSkills?: ResolvedSkill[];
+    lifesteal?: number;
+    skillCdMult?: number;
   },
 ): Unit {
   const activeSkills = opts.activeSkills ?? [];
+  const cdMult = opts.skillCdMult ?? 1;
   const skillCds: Record<string, number> = {};
   for (const s of activeSkills) {
     // Small deterministic stagger so a full loadout doesn't all fire on tick 1.
-    skillCds[s.id] = s.def.cooldown ? Math.min(1.5, s.def.cooldown * 0.35) : 0;
+    skillCds[s.id] = s.def.cooldown ? Math.min(1.5, s.def.cooldown * 0.35 * cdMult) : 0;
   }
   return {
     id: id(state, opts.team === 'ally' ? 'a' : 'e'),
@@ -177,6 +182,8 @@ function makeUnit(
     xpValue: opts.xpValue ?? 0,
     activeSkills,
     skillCds,
+    lifesteal: opts.lifesteal ?? 0,
+    skillCdMult: cdMult,
     shield: 0,
     shieldUntil: 0,
     statusEffects: [],
@@ -225,7 +232,7 @@ export function stepCombat(state: CombatState, dt: number, rng: Rng): void {
         if ((unit.skillCds[rs.id] ?? 0) > 0) continue;
         if (!shouldCast(rs.def.trigger, ctx)) continue;
         castSkill(state, unit, rs, rng);
-        unit.skillCds[rs.id] = rs.def.cooldown ?? 0;
+        unit.skillCds[rs.id] = (rs.def.cooldown ?? 0) * unit.skillCdMult;
         cast = true;
         break;
       }
@@ -377,7 +384,14 @@ function performAttack(state: CombatState, source: Unit, target: Unit, rng: Rng)
     });
   } else {
     applyDamage(state, target, roll.amount, roll.crit, roll.crit || rng.chance(0.5));
+    lifestealHeal(source, roll.amount);
   }
+}
+
+/** An ally with lifesteal heals for a fraction of the damage it dealt. */
+function lifestealHeal(source: Unit, dmg: number): void {
+  if (source.dead || source.lifesteal <= 0 || source.hp >= source.stats.maxHp) return;
+  source.hp = Math.min(source.stats.maxHp, source.hp + dmg * source.lifesteal);
 }
 
 function updateProjectiles(state: CombatState, dt: number, rng: Rng): void {
@@ -393,6 +407,8 @@ function updateProjectiles(state: CombatState, dt: number, rng: Rng): void {
 
     if (d <= travel + 3) {
       applyDamage(state, target, p.damage, p.crit, p.crit || rng.chance(0.5));
+      const src = state.units.find((u) => u.id === p.sourceId);
+      if (src) lifestealHeal(src, p.damage);
       continue;
     }
     p.x += (dx / d) * travel;
@@ -499,7 +515,9 @@ function castSkill(state: CombatState, caster: Unit, rs: ResolvedSkill, rng: Rng
     const dmg =
       effectiveStat(caster, 'atk') * (('power' in e ? e.power : 0) / 100) * rank *
       (crit ? caster.stats.critDmg : 1);
-    applyDamage(state, tgt, Math.round(dmg), crit);
+    const rounded = Math.round(dmg);
+    applyDamage(state, tgt, rounded, crit);
+    lifestealHeal(caster, rounded);
   };
 
   switch (e.type) {

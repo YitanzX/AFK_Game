@@ -37,23 +37,27 @@ export function SkillsTab() {
     return rank > 0 ? 'owned' : 'available';
   };
 
-  const nodes: GraphNode[] = defs.map((def, i) => ({
-    id: def.id,
-    col: i % 2,
-    row: i,
-    glyph: def.kind === 'passive' ? 'gear' : 'spark',
-    color: def.kind === 'passive' ? PASSIVE_COLOR : ACTIVE_COLOR,
-    rank: hero.skills[def.id] ?? 0,
-    maxRank: def.maxRank,
-    state: nodeState(def.id),
-    selected: selected === def.id,
-    title: t(def.nameKey),
-  }));
+  // grid layout: one row per distinct unlock level, columns for skills sharing it
+  const tiers = [...new Set(defs.map((d) => d.unlockLevel))].sort((a, b) => a - b);
+  let cols = 1;
+  const nodes: GraphNode[] = defs.map((def) => {
+    const sameLevel = defs.filter((d) => d.unlockLevel === def.unlockLevel);
+    cols = Math.max(cols, sameLevel.length);
+    return {
+      id: def.id,
+      col: sameLevel.indexOf(def),
+      row: tiers.indexOf(def.unlockLevel),
+      glyph: def.kind === 'passive' ? 'gear' : 'spark',
+      color: def.kind === 'passive' ? PASSIVE_COLOR : ACTIVE_COLOR,
+      rank: hero.skills[def.id] ?? 0,
+      maxRank: def.maxRank,
+      state: nodeState(def.id),
+      selected: selected === def.id,
+      title: t(def.nameKey),
+    };
+  });
 
   const edges: GraphEdge[] = [];
-  for (let i = 1; i < defs.length; i++) {
-    edges.push({ from: defs[i - 1].id, to: defs[i].id, active: learned.has(defs[i - 1].id) });
-  }
   for (const def of defs) {
     if (def.requires) edges.push({ from: def.requires, to: def.id, active: learned.has(def.requires) });
   }
@@ -91,7 +95,7 @@ export function SkillsTab() {
         </button>
       </div>
 
-      <TreeGraph nodes={nodes} edges={edges} cols={2} rows={defs.length} onSelect={setSelected} />
+      <TreeGraph nodes={nodes} edges={edges} cols={cols} rows={tiers.length} onSelect={setSelected} />
 
       {sel && (
         <div className="node-detail">

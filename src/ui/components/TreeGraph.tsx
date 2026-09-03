@@ -21,9 +21,9 @@ export interface GraphEdge {
   active: boolean;
 }
 
-const CELL_W = 128;
-const CELL_H = 100;
-const NODE = 68;
+export const CELL_W = 104;
+const CELL_H = 92;
+const NODE = 60;
 
 function center(n: { col: number; row: number }) {
   return { x: n.col * CELL_W + CELL_W / 2, y: n.row * CELL_H + CELL_H / 2 };
@@ -35,20 +35,22 @@ export function TreeGraph({
   cols,
   rows,
   onSelect,
+  embedded,
 }: {
   nodes: GraphNode[];
   edges: GraphEdge[];
   cols: number;
   rows: number;
   onSelect: (id: string) => void;
+  /** true = caller provides the scroll wrapper. */
+  embedded?: boolean;
 }) {
   const w = cols * CELL_W;
   const h = rows * CELL_H;
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
-  return (
-    <div className="tree-scroll">
-      <div className="tree-graph" style={{ width: w, height: h }}>
+  const graph = (
+    <div className="tree-graph" style={{ width: w, height: h }}>
         <svg className="tree-edges" width={w} height={h} shapeRendering="crispEdges">
           {edges.map((e, i) => {
             const a = byId.get(e.from);
@@ -98,7 +100,8 @@ export function TreeGraph({
             </button>
           );
         })}
-      </div>
     </div>
   );
+
+  return embedded ? graph : <div className="tree-scroll">{graph}</div>;
 }

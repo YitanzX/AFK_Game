@@ -25,9 +25,9 @@ describe('computeMetaBonuses', () => {
   });
 
   it('utility nodes raise afk cap and party slots', () => {
-    const b = computeMetaBonuses({ metaTree: { meta_afk: 4, meta_slot: 2 } });
+    const b = computeMetaBonuses({ metaTree: { meta_afk: 4, meta_slot: 1, meta_warband: 1 } });
     expect(b.afkCapHours).toBe(12 + 8);
-    expect(b.partySlots).toBe(4 + 2);
+    expect(b.partySlots).toBe(4 + 2); // meta_slot + meta_warband
   });
 
   it('clamps a rank above maxRank', () => {

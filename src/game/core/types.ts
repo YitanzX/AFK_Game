@@ -69,6 +69,10 @@ export interface Unit {
   activeSkills: ResolvedSkill[];
   /** Seconds until each skill id is castable again. */
   skillCds: Record<string, number>;
+  /** Fraction of damage this unit heals back on hitting an enemy (allies only). */
+  lifesteal: number;
+  /** Multiplier on this unit's skill cooldowns (1 = normal, <1 = faster). */
+  skillCdMult: number;
   /** Damage soak that depletes before hp. */
   shield: number;
   /** state.elapsed at which the current shield expires. */
@@ -219,6 +223,10 @@ export interface ResolvedHero {
   level: number;
   stats: Stats;
   skills: ResolvedSkill[];
+  /** From the meta tree. Default 0. */
+  lifesteal?: number;
+  /** From the meta tree. Default 1. */
+  skillCdMult?: number;
 }
 
 export type { Item, ItemSlot };

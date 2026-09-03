@@ -5,13 +5,13 @@ import {
   META_BRANCHES,
   META_NODES,
   META_NODE_BY_ID,
-  metaNodeVars,
+  describeMetaNode,
   nodeCost,
   type MetaBranch,
 } from '../../game/content/metaTree';
 import { RELIC_UPGRADES, relicGain } from '../../game/content/prestige';
 import { computeMetaBonuses } from '../../game/systems/meta';
-import { TreeGraph, type GraphEdge, type GraphNode, type NodeState } from '../components/TreeGraph';
+import { TreeGraph, CELL_W, type GraphEdge, type GraphNode, type NodeState } from '../components/TreeGraph';
 import { RelicRow } from '../components/RelicRow';
 import { formatNumber } from '../format';
 
@@ -20,12 +20,20 @@ const BRANCH_GLYPH: Record<MetaBranch, string> = {
   defense: 'shield',
   economy: 'coin',
   utility: 'gear',
+  sustain: 'cross',
+  fortune: 'coin',
+  mastery: 'spark',
+  command: 'shield',
 };
 const BRANCH_COLOR: Record<MetaBranch, string> = {
   offense: '#e35b5b',
   defense: '#4f8fd6',
   economy: '#ffcb47',
   utility: '#6fcf6f',
+  sustain: '#e07ab0',
+  fortune: '#f2a25c',
+  mastery: '#a06cff',
+  command: '#7fd0d0',
 };
 
 const pct = (n: number) => `+${Math.round((n - 1) * 100)}%`;
@@ -52,10 +60,10 @@ export function TreeTab() {
   const gain = relicGain(Math.max(bestStageEver, maxStageCleared));
 
   // --- graph layout: one column per branch ---------------------------
-  const perBranch: Record<MetaBranch, string[]> = {
-    offense: [], defense: [], economy: [], utility: [],
-  };
-  for (const n of META_NODES) perBranch[n.branch].push(n.id);
+  const perBranch = Object.fromEntries(
+    META_BRANCHES.map((b) => [b, [] as string[]]),
+  ) as Record<MetaBranch, string[]>;
+  for (const node of META_NODES) perBranch[node.branch].push(node.id);
   const rows = Math.max(...META_BRANCHES.map((b) => perBranch[b].length));
 
   const nodeState = (id: string): NodeState => {
@@ -131,14 +139,28 @@ export function TreeTab() {
         {summary.length > 0 ? summary.join(' · ') : <span className="muted">{t('meta.none')}</span>}
       </div>
 
-      <div className="tree-branch-labels" style={{ gridTemplateColumns: `repeat(${META_BRANCHES.length}, 128px)` }}>
-        {META_BRANCHES.map((b) => (
-          <span key={b} style={{ color: BRANCH_COLOR[b] }}>
-            {t(`meta.branch.${b}`)}
-          </span>
-        ))}
+      <div className="tree-scroll">
+        <div style={{ minWidth: META_BRANCHES.length * CELL_W, margin: '0 auto' }}>
+          <div
+            className="tree-branch-labels"
+            style={{ gridTemplateColumns: `repeat(${META_BRANCHES.length}, ${CELL_W}px)` }}
+          >
+            {META_BRANCHES.map((b) => (
+              <span key={b} style={{ color: BRANCH_COLOR[b] }}>
+                {t(`meta.branch.${b}`)}
+              </span>
+            ))}
+          </div>
+          <TreeGraph
+            nodes={nodes}
+            edges={edges}
+            cols={META_BRANCHES.length}
+            rows={rows}
+            onSelect={setSelected}
+            embedded
+          />
+        </div>
       </div>
-      <TreeGraph nodes={nodes} edges={edges} cols={META_BRANCHES.length} rows={rows} onSelect={setSelected} />
 
       {sel && (
         <div className="node-detail">
@@ -148,7 +170,7 @@ export function TreeTab() {
               <span className="muted">{t('skills.rank', { r: selRank, max: sel.maxRank })}</span>
             </div>
             <p className="muted" style={{ margin: '4px 0' }}>
-              {t(sel.descKey, metaNodeVars(sel, Math.max(1, selRank)))}
+              {describeMetaNode(sel, selRank, t)}
             </p>
             {!prereqMet && sel.requires && (
               <div className="skill-req bad">

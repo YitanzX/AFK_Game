@@ -52,6 +52,7 @@ export function resolveParty(
       stats.def = Math.round(stats.def * meta.defMult);
       stats.attackSpeed = Math.min(3, stats.attackSpeed * meta.atkSpeedMult);
       stats.critChance = Math.min(0.75, stats.critChance + meta.critAdd);
+      stats.critDmg += meta.critDmgAdd;
     }
     out.push({
       classId: unit.classId,
@@ -60,6 +61,8 @@ export function resolveParty(
       level: unit.level,
       stats,
       skills: resolveSkills(unit),
+      lifesteal: meta?.lifestealPct ?? 0,
+      skillCdMult: meta?.skillCdMult ?? 1,
     });
   }
   return out;

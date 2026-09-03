@@ -15,6 +15,12 @@ export interface MetaBonuses {
   atkSpeedMult: number;
   /** Flat crit chance added to every hero. */
   critAdd: number;
+  /** Flat crit-damage multiplier added (e.g. 0.4 = +40% crit dmg). */
+  critDmgAdd: number;
+  /** Fraction of damage an ally heals back (0..~0.6). */
+  lifestealPct: number;
+  /** Skill cooldown multiplier (1 = normal, <1 = faster). */
+  skillCdMult: number;
   dropMult: number;
   fragmentMult: number;
   /** Total offline cap in hours (12 base + tree). */
@@ -35,6 +41,9 @@ function empty(): MetaBonuses {
     defMult: 1,
     atkSpeedMult: 1,
     critAdd: 0,
+    critDmgAdd: 0,
+    lifestealPct: 0,
+    skillCdMult: 1,
     dropMult: 1,
     fragmentMult: 1,
     afkCapHours: BASE_AFK_HOURS,
@@ -51,6 +60,9 @@ function applyEffect(b: MetaBonuses, kind: MetaEffectKind, amount: number): void
     case 'defMult': b.defMult += amount; break;
     case 'atkSpeedMult': b.atkSpeedMult += amount; break;
     case 'critAdd': b.critAdd += amount; break;
+    case 'critDmgAdd': b.critDmgAdd += amount; break;
+    case 'lifestealPct': b.lifestealPct += amount; break;
+    case 'skillCdMult': b.skillCdMult += amount; break;
     case 'dropMult': b.dropMult += amount; break;
     case 'fragmentMult': b.fragmentMult += amount; break;
     case 'afkCapHours': b.afkCapHours += amount; break;
@@ -83,5 +95,7 @@ export function computeMetaBonuses(input: MetaInput): MetaBonuses {
   }
 
   b.partySlots = Math.round(b.partySlots);
+  b.skillCdMult = Math.max(0.4, b.skillCdMult);
+  b.lifestealPct = Math.min(0.6, b.lifestealPct);
   return b;
 }
