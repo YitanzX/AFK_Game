@@ -67,24 +67,24 @@ const DEFS: SkillDef[] = [
   {
     id: 'warrior_taunt', classId: 'warrior', nameKey: 'skill.warrior_taunt',
     descKey: 'skilldesc.warrior_taunt', kind: 'active', maxRank: 3, costPerRank: 1,
-    unlockLevel: 3, priority: 80, cooldown: 9, trigger: 'backlineThreatened',
+    unlockLevel: 5, requires: 'warrior_bash', priority: 80, cooldown: 9, trigger: 'backlineThreatened',
     effect: { type: 'taunt', duration: 4 },
   },
   {
     id: 'warrior_warcry', classId: 'warrior', nameKey: 'skill.warrior_warcry',
     descKey: 'skilldesc.warrior_warcry', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 6, priority: 30, cooldown: 12, trigger: 'always',
+    unlockLevel: 6, requires: 'warrior_cleave', priority: 30, cooldown: 12, trigger: 'always',
     effect: { type: 'buff', stat: 'atk', pct: 12, duration: 6, scope: 'all' },
   },
   {
     id: 'warrior_ironskin', classId: 'warrior', nameKey: 'skill.warrior_ironskin',
     descKey: 'skilldesc.warrior_ironskin', kind: 'passive', maxRank: 5, costPerRank: 1,
-    unlockLevel: 4, priority: 0, passiveMod: { stat: 'def', perRank: 6, isPercent: true },
+    unlockLevel: 1, priority: 0, passiveMod: { stat: 'def', perRank: 6, isPercent: true },
   },
   {
     id: 'warrior_secondwind', classId: 'warrior', nameKey: 'skill.warrior_secondwind',
     descKey: 'skilldesc.warrior_secondwind', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 10, priority: 90, cooldown: 14, trigger: { selfHpBelow: 45 },
+    unlockLevel: 8, requires: 'warrior_ironskin', priority: 90, cooldown: 14, trigger: { selfHpBelow: 45 },
     effect: { type: 'heal', power: 6, scope: 'self' },
   },
 
@@ -98,19 +98,19 @@ const DEFS: SkillDef[] = [
   {
     id: 'mage_nova', classId: 'mage', nameKey: 'skill.mage_nova',
     descKey: 'skilldesc.mage_nova', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 3, priority: 40, cooldown: 5, trigger: { enemiesAtLeast: 2 },
+    unlockLevel: 3, requires: 'mage_firebolt', priority: 40, cooldown: 5, trigger: { enemiesAtLeast: 2 },
     effect: { type: 'aoe_damage', power: 45 },
   },
   {
     id: 'mage_burn', classId: 'mage', nameKey: 'skill.mage_burn',
     descKey: 'skilldesc.mage_burn', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 6, priority: 25, cooldown: 6, trigger: 'always',
+    unlockLevel: 7, requires: 'mage_frost', priority: 25, cooldown: 6, trigger: 'always',
     effect: { type: 'dot', power: 2, duration: 4 },
   },
   {
     id: 'mage_focus', classId: 'mage', nameKey: 'skill.mage_focus',
     descKey: 'skilldesc.mage_focus', kind: 'passive', maxRank: 5, costPerRank: 1,
-    unlockLevel: 4, priority: 0, passiveMod: { stat: 'atk', perRank: 5, isPercent: true },
+    unlockLevel: 1, priority: 0, passiveMod: { stat: 'atk', perRank: 5, isPercent: true },
   },
   {
     id: 'mage_meteor', classId: 'mage', nameKey: 'skill.mage_meteor',
@@ -129,24 +129,24 @@ const DEFS: SkillDef[] = [
   {
     id: 'priest_groupheal', classId: 'priest', nameKey: 'skill.priest_groupheal',
     descKey: 'skilldesc.priest_groupheal', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 5, priority: 75, cooldown: 8, trigger: { allyHpBelow: 50 },
+    unlockLevel: 5, requires: 'priest_heal', priority: 75, cooldown: 8, trigger: { allyHpBelow: 50 },
     effect: { type: 'heal', power: 4, scope: 'all' },
   },
   {
     id: 'priest_shield', classId: 'priest', nameKey: 'skill.priest_shield',
     descKey: 'skilldesc.priest_shield', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 8, priority: 60, cooldown: 7, trigger: { allyHpBelow: 80 },
+    unlockLevel: 8, requires: 'priest_heal', priority: 60, cooldown: 7, trigger: { allyHpBelow: 80 },
     effect: { type: 'shield', power: 8, duration: 5, scope: 'lowest' },
   },
   {
     id: 'priest_faith', classId: 'priest', nameKey: 'skill.priest_faith',
     descKey: 'skilldesc.priest_faith', kind: 'passive', maxRank: 5, costPerRank: 1,
-    unlockLevel: 4, priority: 0, passiveMod: { stat: 'maxHp', perRank: 6, isPercent: true },
+    unlockLevel: 1, priority: 0, passiveMod: { stat: 'maxHp', perRank: 6, isPercent: true },
   },
   {
     id: 'priest_revive', classId: 'priest', nameKey: 'skill.priest_revive',
     descKey: 'skilldesc.priest_revive', kind: 'active', maxRank: 3, costPerRank: 2,
-    unlockLevel: 12, priority: 100, cooldown: 25, trigger: 'allyDead',
+    unlockLevel: 13, requires: 'priest_shield', priority: 100, cooldown: 25, trigger: 'allyDead',
     effect: { type: 'revive', hpPct: 40 },
   },
 
@@ -160,25 +160,25 @@ const DEFS: SkillDef[] = [
   {
     id: 'rogue_poison', classId: 'rogue', nameKey: 'skill.rogue_poison',
     descKey: 'skilldesc.rogue_poison', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 3, priority: 25, cooldown: 5, trigger: 'always',
+    unlockLevel: 3, requires: 'rogue_backstab', priority: 25, cooldown: 5, trigger: 'always',
     effect: { type: 'dot', power: 3, duration: 5 },
   },
   {
     id: 'rogue_bladedance', classId: 'rogue', nameKey: 'skill.rogue_bladedance',
     descKey: 'skilldesc.rogue_bladedance', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 6, priority: 40, cooldown: 6, trigger: { enemiesAtLeast: 2 },
+    unlockLevel: 6, requires: 'rogue_shadowstep', priority: 40, cooldown: 6, trigger: { enemiesAtLeast: 2 },
     effect: { type: 'aoe_damage', power: 40 },
   },
   {
     id: 'rogue_reflexes', classId: 'rogue', nameKey: 'skill.rogue_reflexes',
     descKey: 'skilldesc.rogue_reflexes', kind: 'passive', maxRank: 5, costPerRank: 1,
-    unlockLevel: 4, priority: 0,
+    unlockLevel: 1, priority: 0,
     passiveMod: { stat: 'attackSpeed', perRank: 5, isPercent: true },
   },
   {
     id: 'rogue_evasion', classId: 'rogue', nameKey: 'skill.rogue_evasion',
     descKey: 'skilldesc.rogue_evasion', kind: 'active', maxRank: 4, costPerRank: 1,
-    unlockLevel: 10, priority: 85, cooldown: 12, trigger: { selfHpBelow: 50 },
+    unlockLevel: 10, requires: 'rogue_reflexes', priority: 85, cooldown: 12, trigger: { selfHpBelow: 50 },
     effect: { type: 'buff', stat: 'def', pct: 40, duration: 4 },
   },
 
@@ -186,13 +186,13 @@ const DEFS: SkillDef[] = [
   {
     id: 'warrior_bash', classId: 'warrior', nameKey: 'skill.warrior_bash',
     descKey: 'skilldesc.warrior_bash', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 2, priority: 22, cooldown: 4, trigger: 'always',
+    unlockLevel: 3, requires: 'warrior_cleave', priority: 22, cooldown: 4, trigger: 'always',
     effect: { type: 'damage', power: 100 },
   },
   {
     id: 'warrior_rampage', classId: 'warrior', nameKey: 'skill.warrior_rampage',
     descKey: 'skilldesc.warrior_rampage', kind: 'passive', maxRank: 5, costPerRank: 1,
-    unlockLevel: 8, priority: 0, requires: 'warrior_cleave',
+    unlockLevel: 9, priority: 0, requires: 'warrior_warcry',
     passiveMod: { stat: 'atk', perRank: 4, isPercent: true },
   },
   {
@@ -206,47 +206,47 @@ const DEFS: SkillDef[] = [
   {
     id: 'mage_frost', classId: 'mage', nameKey: 'skill.mage_frost',
     descKey: 'skilldesc.mage_frost', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 4, priority: 42, cooldown: 5, trigger: { enemiesAtLeast: 2 },
+    unlockLevel: 5, priority: 42, cooldown: 5, trigger: { enemiesAtLeast: 2 },
     requires: 'mage_firebolt',
     effect: { type: 'aoe_damage', power: 40 },
   },
   {
     id: 'mage_ward', classId: 'mage', nameKey: 'skill.mage_ward',
     descKey: 'skilldesc.mage_ward', kind: 'passive', maxRank: 5, costPerRank: 1,
-    unlockLevel: 8, priority: 0,
+    unlockLevel: 6, requires: 'mage_focus', priority: 0,
     passiveMod: { stat: 'maxHp', perRank: 5, isPercent: true },
   },
   {
     id: 'mage_surge', classId: 'mage', nameKey: 'skill.mage_surge',
     descKey: 'skilldesc.mage_surge', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 12, priority: 32, cooldown: 12, trigger: 'always', requires: 'mage_focus',
+    unlockLevel: 10, priority: 32, cooldown: 12, trigger: 'always', requires: 'mage_focus',
     effect: { type: 'buff', stat: 'atk', pct: 20, duration: 6, scope: 'self' },
   },
 
   {
     id: 'priest_smite', classId: 'priest', nameKey: 'skill.priest_smite',
     descKey: 'skilldesc.priest_smite', kind: 'active', maxRank: 5, costPerRank: 1,
-    unlockLevel: 3, priority: 24, cooldown: 4, trigger: 'always',
+    unlockLevel: 4, requires: 'priest_faith', priority: 24, cooldown: 4, trigger: 'always',
     effect: { type: 'damage', power: 70 },
   },
   {
     id: 'priest_zeal', classId: 'priest', nameKey: 'skill.priest_zeal',
     descKey: 'skilldesc.priest_zeal', kind: 'passive', maxRank: 5, costPerRank: 1,
-    unlockLevel: 6, priority: 0,
+    unlockLevel: 6, requires: 'priest_faith', priority: 0,
     passiveMod: { stat: 'atk', perRank: 4, isPercent: true },
   },
   {
     id: 'priest_sanctuary', classId: 'priest', nameKey: 'skill.priest_sanctuary',
     descKey: 'skilldesc.priest_sanctuary', kind: 'active', maxRank: 4, costPerRank: 1,
-    unlockLevel: 10, priority: 65, cooldown: 14, trigger: { allyHpBelow: 70 },
-    requires: 'priest_shield',
+    unlockLevel: 11, priority: 65, cooldown: 14, trigger: { allyHpBelow: 70 },
+    requires: 'priest_groupheal',
     effect: { type: 'shield', power: 6, duration: 6, scope: 'all' },
   },
 
   {
     id: 'rogue_shadowstep', classId: 'rogue', nameKey: 'skill.rogue_shadowstep',
     descKey: 'skilldesc.rogue_shadowstep', kind: 'passive', maxRank: 5, costPerRank: 1,
-    unlockLevel: 4, priority: 0,
+    unlockLevel: 4, requires: 'rogue_reflexes', priority: 0,
     passiveMod: { stat: 'critChance', perRank: 0.02, isPercent: false },
   },
   {
