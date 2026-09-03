@@ -80,7 +80,7 @@ class BattleController {
     this.pauseUntil = 0;
     this.loadoutRev = s.loadoutRev;
     const combat = createCombat({
-      party: resolveParty(s.roster, s.party),
+      party: resolveParty(s.roster, s.party, s.meta()),
       stage: s.farmingStage,
       attempt: s.stageAttempt,
     });

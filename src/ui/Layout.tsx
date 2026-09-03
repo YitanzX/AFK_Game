@@ -7,10 +7,11 @@ import { CombatLog } from './CombatLog';
 import { PartyTab } from './tabs/PartyTab';
 import { InventoryTab } from './tabs/InventoryTab';
 import { SkillsTab } from './tabs/SkillsTab';
+import { TreeTab } from './tabs/TreeTab';
 
 type Tab = 'battle' | 'party' | 'inventory' | 'skills' | 'tree';
 const TABS: Tab[] = ['battle', 'party', 'inventory', 'skills', 'tree'];
-const ENABLED: Tab[] = ['battle', 'party', 'inventory', 'skills'];
+const ENABLED: Tab[] = ['battle', 'party', 'inventory', 'skills', 'tree'];
 const SPEEDS = [1, 2, 4];
 
 export function Layout() {
@@ -71,7 +72,7 @@ export function Layout() {
       {tab === 'party' && <PartyTab />}
       {tab === 'inventory' && <InventoryTab />}
       {tab === 'skills' && <SkillsTab />}
-      {tab === 'tree' && <div className="panel coming-soon">{t('tab.comingSoon')}</div>}
+      {tab === 'tree' && <TreeTab />}
     </>
   );
 }

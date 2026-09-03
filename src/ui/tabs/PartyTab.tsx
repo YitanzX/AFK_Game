@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useT } from '../../i18n';
 import { useGameStore } from '../../game/state/store';
-import { CLASSES, MAX_PARTY } from '../../game/content/classes';
+import { CLASSES } from '../../game/content/classes';
 import { deriveUnitStats } from '../../game/systems/stats';
 import { RECRUIT_ORDER, recruitCost, isUnlocked } from '../../game/systems/recruit';
 import type { RosterUnit } from '../../game/core/types';
@@ -22,6 +22,7 @@ function HeroCard({
 }) {
   const { t } = useT();
   const partyLen = useGameStore((s) => s.party.length);
+  const maxSlots = useGameStore((s) => s.meta().partySlots);
   const fieldHero = useGameStore((s) => s.fieldHero);
   const benchHero = useGameStore((s) => s.benchHero);
   const setLine = useGameStore((s) => s.setLine);
@@ -50,7 +51,7 @@ function HeroCard({
         ) : (
           <button
             className="primary"
-            disabled={partyLen >= MAX_PARTY}
+            disabled={partyLen >= maxSlots}
             onClick={() => fieldHero(unit.classId)}
           >
             {t('party.field')}
@@ -68,12 +69,13 @@ export function PartyTab() {
   const fragments = useGameStore((s) => s.fragments);
   const recentRecruits = useGameStore((s) => s.recentRecruits);
   const dismissRecruits = useGameStore((s) => s.dismissRecruits);
+  const maxSlots = useGameStore((s) => s.meta().partySlots);
 
   const [sheetClassId, setSheetClassId] = useState<string | null>(null);
 
   const fieldedIds = new Set(party.map((p) => p.classId));
   const bench = roster.filter((r) => !fieldedIds.has(r.classId));
-  const emptySlots = Math.max(0, MAX_PARTY - party.length);
+  const emptySlots = Math.max(0, maxSlots - party.length);
 
   return (
     <div className="panel tab-scroll">

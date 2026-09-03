@@ -970,3 +970,27 @@ button.active {
   width: 18px;
   height: 18px;
 }
+
+/* --- M4: meta tree ------------------------------------------------- */
+.meta-summary {
+  background: var(--bg-panel-2);
+  border: 3px solid var(--border);
+  box-shadow: var(--bevel);
+  padding: 8px 12px;
+  margin: 12px 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.meta-branches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.meta-branch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.meta-branch h3 {
+  margin: 4px 0;
+}

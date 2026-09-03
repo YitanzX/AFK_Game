@@ -13,14 +13,15 @@ import { isBossStage } from '../content/stages';
 /** Chance a normal stage clear drops an item. */
 const NORMAL_DROP_CHANCE = 0.38;
 
-/** Rarity weights shift toward the rare end as stages climb. */
-function rarityWeights(stage: number, bossBonus: boolean): number[] {
+/** Rarity weights shift toward the rare end as stages climb (and with `luck`). */
+function rarityWeights(stage: number, bossBonus: boolean, luck: number): number[] {
   const t = Math.min(1, stage / 40);
+  const l = Math.max(1, luck);
   const w = [
     Math.max(0.05, 1 - t * 0.8), // common
     0.5 + t * 0.2, // uncommon
-    0.12 + t * 0.5, // rare
-    0.02 + t * 0.4, // epic
+    (0.12 + t * 0.5) * l, // rare
+    (0.02 + t * 0.4) * l * l, // epic
   ];
   if (bossBonus) {
     w[0] *= 0.3;
@@ -68,15 +69,18 @@ export interface DropContext {
   rng: Rng;
   /** Monotonic-ish suffix for the item id (e.g. a run counter). */
   idSeed: number;
+  /** >= 1: meta-tree drop bonus (chance + rarity). Default 1. */
+  luck?: number;
 }
 
 /** Roll a stage-clear drop. Returns null when nothing drops. */
 export function rollDrop(ctx: DropContext): Item | null {
   const boss = isBossStage(ctx.stage);
-  if (!boss && !ctx.rng.chance(NORMAL_DROP_CHANCE)) return null;
+  const luck = Math.max(1, ctx.luck ?? 1);
+  if (!boss && !ctx.rng.chance(Math.min(0.95, NORMAL_DROP_CHANCE * luck))) return null;
 
   const slot = ctx.rng.pick(ITEM_SLOTS);
-  const rarity = weightedPick(ctx.rng, RARITIES, rarityWeights(ctx.stage, boss));
+  const rarity = weightedPick(ctx.rng, RARITIES, rarityWeights(ctx.stage, boss, luck));
   const ilvl = Math.max(1, ctx.stage);
 
   return {

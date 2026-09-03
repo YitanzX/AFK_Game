@@ -17,6 +17,17 @@ npm run build    # type-check + production build
 npm run preview  # serve the production build
 ```
 
+## Milestone 4 (meta tree + prestige)
+
+- A **meta skill tree** bought with **gold** — 14 permanent account-wide nodes across
+  Offense / Defense / Economy / Utility: +% XP, gold, party ATK/HP/DEF/attack speed, crit,
+  drop rate, hero fragments, a bigger offline cap and extra party slots (up to 6 heroes).
+  Free full refund.
+- **Prestige**: reset the run (hero levels, skills, gear, stage, gold) for **Relics** scaled
+  to your best stage. You keep your recruited heroes and the meta tree. Relics buy permanent
+  upgrades — flat XP/gold/power boosts, a higher starting stage/level, keep-your-gear.
+- Save schema is **v4**; older saves migrate automatically.
+
 ## Milestone 3 (skills)
 
 - **Skill points**: heroes earn 1 per level, spent to learn and rank up class skills in the
@@ -84,8 +95,5 @@ before starting the next battle with refreshed roster stats and a new seed.
 
 ## Roadmap (not yet implemented)
 
-- **M4** — Meta skill tree: tree currency, prerequisite nodes with ranks, aggregated
-  `MetaBonuses` feeding formulas & stat derivation (+% XP / gold / AFK cap / party stats…),
-  respec.
-- **M5** — Polish & balance: prestige hook, save export/import, number formatting, settings,
-  audio, balance pass.
+- **M5** — Polish & balance: save export/import, settings, audio, prestige-curve tuning,
+  more content (classes, enemies, stages, item affixes).

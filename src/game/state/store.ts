@@ -12,6 +12,7 @@ import { create } from 'zustand';
 import type { Item } from '../core/items';
 import { itemValue } from '../core/items';
 import type { Outcome, PartySlot, ResolvedHero, RosterUnit } from '../core/types';
+import { emptyEquipment } from '../core/types';
 import {
   freshSave,
   loadSave,
@@ -27,23 +28,37 @@ import { SKILLS, availablePoints } from '../content/skills';
 import { applyFragments } from '../systems/recruit';
 import { rollDrop } from '../systems/loot';
 import { computeOfflineProgress, estimateFarmRates, type OfflineProgress } from '../systems/afk';
+import { computeMetaBonuses, type MetaBonuses } from '../systems/meta';
+import { META_NODE_BY_ID, nodeCost, nodeSpent } from '../content/metaTree';
+import { RELIC_BY_ID, relicGain, prestigeRunStart } from '../content/prestige';
 import { xpGainScale } from '../core/formulas';
 import { mulberry32, hashSeed } from '../core/rng';
-import { MAX_PARTY } from '../content/classes';
 import { getLocale, setLocale as setI18nLocale, type Locale } from '../../i18n';
 
 /** Resolve the active party to the shape the simulation & afk maths expect. */
-export function resolveParty(roster: RosterUnit[], party: PartySlot[]): ResolvedHero[] {
+export function resolveParty(
+  roster: RosterUnit[],
+  party: PartySlot[],
+  meta?: MetaBonuses,
+): ResolvedHero[] {
   const out: ResolvedHero[] = [];
   for (const slot of party) {
     const unit = roster.find((r) => r.classId === slot.classId);
     if (!unit) continue;
+    const stats = deriveUnitStats(unit);
+    if (meta) {
+      stats.atk = Math.round(stats.atk * meta.atkMult);
+      stats.maxHp = Math.round(stats.maxHp * meta.hpMult);
+      stats.def = Math.round(stats.def * meta.defMult);
+      stats.attackSpeed = Math.min(3, stats.attackSpeed * meta.atkSpeedMult);
+      stats.critChance = Math.min(0.75, stats.critChance + meta.critAdd);
+    }
     out.push({
       classId: unit.classId,
       line: slot.line,
       partyIndex: out.length,
       level: unit.level,
-      stats: deriveUnitStats(unit),
+      stats,
       skills: resolveSkills(unit),
     });
   }
@@ -65,6 +80,11 @@ interface GameState {
   inventory: Item[];
   fragments: Record<string, number>;
   totalKills: number;
+  metaTree: Record<string, number>;
+  relics: number;
+  prestigeUpgrades: Record<string, number>;
+  prestigeCount: number;
+  bestStageEver: number;
   lastActiveAt: number;
 
   // --- session only ----------------------------------------------------
@@ -95,6 +115,11 @@ interface GameState {
   sellItems: (pred: (i: Item) => boolean) => void;
   spendSkillPoint: (classId: string, skillId: string) => void;
   respecSkills: (classId: string) => void;
+  buyMetaNode: (nodeId: string) => void;
+  respecMetaTree: () => void;
+  buyRelicUpgrade: (id: string) => void;
+  prestige: () => void;
+  meta: () => MetaBonuses;
   dismissOfflineSummary: () => void;
   dismissRecruits: () => void;
   touchActive: () => void;
@@ -119,6 +144,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   inventory: [],
   fragments: {},
   totalKills: 0,
+  metaTree: {},
+  relics: 0,
+  prestigeUpgrades: {},
+  prestigeCount: 0,
+  bestStageEver: 0,
   lastActiveAt: Date.now(),
 
   ready: false,
@@ -132,13 +162,20 @@ export const useGameStore = create<GameState>((set, get) => ({
   init: () => {
     const save = loadSave();
     const now = Date.now();
+    const meta = computeMetaBonuses(save);
 
     const rates = estimateFarmRates({
       seed: save.seed,
       stage: idleStage(save.maxStageCleared),
-      party: resolveParty(save.roster, save.party),
+      party: resolveParty(save.roster, save.party, meta),
     });
-    const offline = computeOfflineProgress({ lastActiveAt: save.lastActiveAt, now, rates });
+    const offline = computeOfflineProgress({
+      lastActiveAt: save.lastActiveAt,
+      now,
+      rates,
+      multipliers: { gold: meta.goldMult, xp: meta.xpMult },
+      capSeconds: meta.afkCapHours * 3600,
+    });
 
     // Offline XP goes to the fielded party only; apply straight away.
     const offStage = idleStage(save.maxStageCleared);
@@ -163,6 +200,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: save.inventory,
       fragments: save.fragments,
       totalKills: save.totalKills,
+      metaTree: save.metaTree,
+      relics: save.relics,
+      prestigeUpgrades: save.prestigeUpgrades,
+      prestigeCount: save.prestigeCount,
+      bestStageEver: save.bestStageEver,
       lastActiveAt: now,
       ready: true,
       offlineSummary:
@@ -170,6 +212,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     writeSaveNow(get().snapshotSave());
+  },
+
+  meta: () => {
+    const s = get();
+    return computeMetaBonuses({
+      metaTree: s.metaTree,
+      prestigeUpgrades: s.prestigeUpgrades,
+      relics: s.relics,
+    });
   },
 
   setLocale: (locale) => {
@@ -181,8 +232,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   addKillRewards: (gold, xp, kills) => {
     if (gold <= 0 && xp <= 0 && kills <= 0) return;
     const s = get();
+    const m = get().meta();
     const patch: Partial<GameState> = {
-      gold: s.gold + Math.max(0, gold),
+      gold: s.gold + Math.max(0, gold) * m.goldMult,
       totalKills: s.totalKills + Math.max(0, kills),
       lastActiveAt: Date.now(),
     };
@@ -190,7 +242,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const { roster, leveledUp } = grantXpToParty(
         s.roster,
         activeClassIds(s.party),
-        xp,
+        xp * m.xpMult,
         (u) => xpGainScale(u.level, s.farmingStage),
       );
       patch.roster = roster;
@@ -207,7 +259,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   addFragments: (n) => {
     if (n <= 0) return;
     const s = get();
-    const res = applyFragments(s.roster, s.party, s.fragments, n);
+    const res = applyFragments(s.roster, s.party, s.fragments, n * get().meta().fragmentMult);
     set({
       roster: res.roster,
       party: res.party,
@@ -224,9 +276,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (outcome === 'victory') {
       const LOOT_SALT = 0x1007;
       const rng = mulberry32(hashSeed(s.seed, s.farmingStage, s.stageAttempt, LOOT_SALT, s.lootCounter));
-      const drop = rollDrop({ stage: s.farmingStage, rng, idSeed: s.lootCounter });
+      const drop = rollDrop({
+        stage: s.farmingStage,
+        rng,
+        idSeed: s.lootCounter,
+        luck: get().meta().dropMult,
+      });
       set({
         maxStageCleared: Math.max(s.maxStageCleared, s.farmingStage),
+        bestStageEver: Math.max(s.bestStageEver, s.farmingStage),
         farmingStage: s.farmingStage + 1,
         stageAttempt: 1,
         lastOutcome: 'victory',
@@ -242,7 +300,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   fieldHero: (classId) => {
     const s = get();
     if (s.party.some((p) => p.classId === classId)) return;
-    if (s.party.length >= MAX_PARTY) return;
+    if (s.party.length >= get().meta().partySlots) return;
     if (!s.roster.some((r) => r.classId === classId)) return;
     set({
       party: [...s.party, { classId, line: 'back' }],
@@ -359,6 +417,83 @@ export const useGameStore = create<GameState>((set, get) => ({
     writeSaveNow(get().snapshotSave());
   },
 
+  buyMetaNode: (nodeId) => {
+    const s = get();
+    const node = META_NODE_BY_ID[nodeId];
+    if (!node) return;
+    const rank = s.metaTree[nodeId] ?? 0;
+    if (rank >= node.maxRank) return;
+    if (node.requires && (s.metaTree[node.requires] ?? 0) < 1) return;
+    const cost = nodeCost(node, rank);
+    if (s.gold < cost) return;
+    set({
+      gold: s.gold - cost,
+      metaTree: { ...s.metaTree, [nodeId]: rank + 1 },
+      loadoutRev: s.loadoutRev + 1,
+    });
+    writeSaveNow(get().snapshotSave());
+  },
+
+  respecMetaTree: () => {
+    const s = get();
+    let refund = 0;
+    for (const [id, rank] of Object.entries(s.metaTree)) {
+      const node = META_NODE_BY_ID[id];
+      if (node) refund += nodeSpent(node, rank);
+    }
+    if (refund === 0) return;
+    set({ gold: s.gold + refund, metaTree: {}, loadoutRev: s.loadoutRev + 1 });
+    writeSaveNow(get().snapshotSave());
+  },
+
+  buyRelicUpgrade: (id) => {
+    const s = get();
+    const up = RELIC_BY_ID[id];
+    if (!up) return;
+    const rank = s.prestigeUpgrades[id] ?? 0;
+    if (rank >= up.maxRank || s.relics < up.costPerRank) return;
+    set({
+      relics: s.relics - up.costPerRank,
+      prestigeUpgrades: { ...s.prestigeUpgrades, [id]: rank + 1 },
+      loadoutRev: s.loadoutRev + 1,
+    });
+    writeSaveNow(get().snapshotSave());
+  },
+
+  prestige: () => {
+    const s = get();
+    const best = Math.max(s.bestStageEver, s.maxStageCleared);
+    const gain = relicGain(best);
+    if (gain <= 0) return;
+
+    const start = prestigeRunStart(s.prestigeUpgrades);
+    const roster = s.roster.map((r) => ({
+      ...r,
+      level: start.level,
+      xp: 0,
+      skills: {},
+      equipment: start.keepGear ? r.equipment : emptyEquipment(),
+    }));
+
+    set({
+      relics: s.relics + gain,
+      prestigeCount: s.prestigeCount + 1,
+      bestStageEver: best,
+      roster,
+      inventory: [],
+      gold: 0,
+      fragments: {},
+      farmingStage: start.stage,
+      maxStageCleared: Math.max(0, start.stage - 1),
+      stageAttempt: 1,
+      lootCounter: s.lootCounter + 1,
+      loadoutRev: s.loadoutRev + 1,
+      lastOutcome: null,
+      recentLevelUps: [],
+    });
+    writeSaveNow(get().snapshotSave());
+  },
+
   dismissOfflineSummary: () => set({ offlineSummary: null }),
   dismissRecruits: () => set({ recentRecruits: [] }),
 
@@ -383,6 +518,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: fresh.inventory,
       fragments: fresh.fragments,
       totalKills: fresh.totalKills,
+      metaTree: fresh.metaTree,
+      relics: fresh.relics,
+      prestigeUpgrades: fresh.prestigeUpgrades,
+      prestigeCount: fresh.prestigeCount,
+      bestStageEver: fresh.bestStageEver,
       lastActiveAt: fresh.lastActiveAt,
       offlineSummary: null,
       lastOutcome: null,
@@ -396,7 +536,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   snapshotSave: () => {
     const s = get();
     return {
-      version: 3,
+      version: 4,
       seed: s.seed,
       locale: s.locale,
       gold: Math.floor(s.gold),
@@ -408,6 +548,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       inventory: s.inventory,
       fragments: s.fragments,
       totalKills: s.totalKills,
+      metaTree: s.metaTree,
+      relics: s.relics,
+      prestigeUpgrades: s.prestigeUpgrades,
+      prestigeCount: s.prestigeCount,
+      bestStageEver: s.bestStageEver,
       lastActiveAt: s.lastActiveAt,
     };
   },
