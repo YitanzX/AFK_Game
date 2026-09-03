@@ -5,16 +5,30 @@ import {
   META_BRANCHES,
   META_NODES,
   META_NODE_BY_ID,
+  metaNodeVars,
+  nodeCost,
+  type MetaBranch,
 } from '../../game/content/metaTree';
 import { RELIC_UPGRADES, relicGain } from '../../game/content/prestige';
 import { computeMetaBonuses } from '../../game/systems/meta';
-import { MetaNodeRow } from '../components/MetaNodeRow';
+import { TreeGraph, type GraphEdge, type GraphNode, type NodeState } from '../components/TreeGraph';
 import { RelicRow } from '../components/RelicRow';
 import { formatNumber } from '../format';
 
-function pct(n: number): string {
-  return `+${Math.round((n - 1) * 100)}%`;
-}
+const BRANCH_GLYPH: Record<MetaBranch, string> = {
+  offense: 'sword',
+  defense: 'shield',
+  economy: 'coin',
+  utility: 'gear',
+};
+const BRANCH_COLOR: Record<MetaBranch, string> = {
+  offense: '#e35b5b',
+  defense: '#4f8fd6',
+  economy: '#ffcb47',
+  utility: '#6fcf6f',
+};
+
+const pct = (n: number) => `+${Math.round((n - 1) * 100)}%`;
 
 export function TreeTab() {
   const { t } = useT();
@@ -31,10 +45,59 @@ export function TreeTab() {
   const prestige = useGameStore((s) => s.prestige);
 
   const [confirming, setConfirming] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
 
   const m = computeMetaBonuses({ metaTree, prestigeUpgrades, relics });
   const anyNode = Object.values(metaTree).some((r) => r > 0);
   const gain = relicGain(Math.max(bestStageEver, maxStageCleared));
+
+  // --- graph layout: one column per branch ---------------------------
+  const perBranch: Record<MetaBranch, string[]> = {
+    offense: [], defense: [], economy: [], utility: [],
+  };
+  for (const n of META_NODES) perBranch[n.branch].push(n.id);
+  const rows = Math.max(...META_BRANCHES.map((b) => perBranch[b].length));
+
+  const nodeState = (id: string): NodeState => {
+    const node = META_NODE_BY_ID[id];
+    const rank = metaTree[id] ?? 0;
+    if (rank >= node.maxRank) return 'maxed';
+    if (node.requires && (metaTree[node.requires] ?? 0) < 1) return 'locked';
+    return rank > 0 ? 'owned' : 'available';
+  };
+
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  META_BRANCHES.forEach((branch, col) => {
+    const ids = perBranch[branch];
+    ids.forEach((id, row) => {
+      const node = META_NODE_BY_ID[id];
+      nodes.push({
+        id,
+        col,
+        row,
+        glyph: BRANCH_GLYPH[branch],
+        color: BRANCH_COLOR[branch],
+        rank: metaTree[id] ?? 0,
+        maxRank: node.maxRank,
+        state: nodeState(id),
+        selected: selected === id,
+        title: t(node.nameKey),
+      });
+      if (row > 0 && ids[row - 1] !== node.requires) {
+        edges.push({ from: ids[row - 1], to: id, active: (metaTree[ids[row - 1]] ?? 0) >= 1 });
+      }
+      if (node.requires) {
+        edges.push({ from: node.requires, to: id, active: (metaTree[node.requires] ?? 0) >= 1 });
+      }
+    });
+  });
+
+  const sel = selected ? META_NODE_BY_ID[selected] : null;
+  const selRank = sel ? metaTree[sel.id] ?? 0 : 0;
+  const selCost = sel ? nodeCost(sel, selRank) : 0;
+  const prereqMet = !sel?.requires || (metaTree[sel.requires] ?? 0) >= 1;
+  const canBuy = sel && selRank < sel.maxRank && prereqMet && gold >= selCost;
 
   const summary = [
     m.xpMult > 1 && `${pct(m.xpMult)} XP`,
@@ -43,7 +106,7 @@ export function TreeTab() {
     m.hpMult > 1 && `${pct(m.hpMult)} PV`,
     m.defMult > 1 && `${pct(m.defMult)} DEF`,
     m.atkSpeedMult > 1 && `${pct(m.atkSpeedMult)} ⚡`,
-    m.critAdd > 0 && `+${Math.round(m.critAdd * 100)}% crít`,
+    m.critAdd > 0 && `+${Math.round(m.critAdd * 100)}% crit`,
     m.dropMult > 1 && `${pct(m.dropMult)} drop`,
     m.fragmentMult > 1 && `${pct(m.fragmentMult)} frag`,
     m.afkCapHours !== 12 && t('meta.afkcap', { n: m.afkCapHours }),
@@ -68,27 +131,40 @@ export function TreeTab() {
         {summary.length > 0 ? summary.join(' · ') : <span className="muted">{t('meta.none')}</span>}
       </div>
 
-      <div className="meta-branches">
-        {META_BRANCHES.map((branch) => (
-          <div key={branch} className="meta-branch">
-            <h3>{t(`meta.branch.${branch}`)}</h3>
-            {META_NODES.filter((n) => n.branch === branch).map((node) => {
-              const req = node.requires ? META_NODE_BY_ID[node.requires] : undefined;
-              return (
-                <MetaNodeRow
-                  key={node.id}
-                  node={node}
-                  rank={metaTree[node.id] ?? 0}
-                  gold={gold}
-                  prereqMet={!node.requires || (metaTree[node.requires] ?? 0) >= 1}
-                  reqName={req ? t(req.nameKey) : undefined}
-                  onBuy={() => buyMetaNode(node.id)}
-                />
-              );
-            })}
-          </div>
+      <div className="tree-branch-labels" style={{ gridTemplateColumns: `repeat(${META_BRANCHES.length}, 128px)` }}>
+        {META_BRANCHES.map((b) => (
+          <span key={b} style={{ color: BRANCH_COLOR[b] }}>
+            {t(`meta.branch.${b}`)}
+          </span>
         ))}
       </div>
+      <TreeGraph nodes={nodes} edges={edges} cols={META_BRANCHES.length} rows={rows} onSelect={setSelected} />
+
+      {sel && (
+        <div className="node-detail">
+          <div className="node-detail-main">
+            <div className="skill-top">
+              <strong>{t(sel.nameKey)}</strong>
+              <span className="muted">{t('skills.rank', { r: selRank, max: sel.maxRank })}</span>
+            </div>
+            <p className="muted" style={{ margin: '4px 0' }}>
+              {t(sel.descKey, metaNodeVars(sel, Math.max(1, selRank)))}
+            </p>
+            {!prereqMet && sel.requires && (
+              <div className="skill-req bad">
+                {t('meta.locked', { name: t(META_NODE_BY_ID[sel.requires]?.nameKey ?? sel.requires) })}
+              </div>
+            )}
+          </div>
+          {selRank >= sel.maxRank ? (
+            <span className="skill-tag maxed">{t('meta.maxed')}</span>
+          ) : (
+            <button className="primary" disabled={!canBuy} onClick={() => buyMetaNode(sel.id)}>
+              {t('meta.cost', { n: formatNumber(selCost) })}
+            </button>
+          )}
+        </div>
+      )}
 
       <h3>{t('prestige.title')}</h3>
       <div className="row" style={{ flexWrap: 'wrap', gap: 14 }}>
